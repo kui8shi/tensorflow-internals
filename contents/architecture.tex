@@ -3,267 +3,225 @@
 \qauthor{\ascii{- Martin Flower}}
 \end{savequote}
 
-\chapter{系统架构} 
+\chapter{システムアーキテクチャ} 
 \label{ch:architecture}
 
 \begin{content}
 
-本章将阐述\tf{}的系统架构，并一个简单的例子，讲述图结构的变换过程。最后，通过挖掘会话管理的工作机制，加深理解\tf{}运行时的工作机理。
+本章では\tf{}のシステムアーキテクチャについて説明し、簡単な例を用いてグラフ構造の変換プロセスを説明します。最後に、セッション管理のメカニズムを掘り下げることで、\tf{}ランタイムの動作原理についての理解を深めます。
 
 \end{content}
 
-\section{系统架构}
+\section{システムアーキテクチャ}
 	
 \begin{content}
 
-如\refig{tf-architecture}所示，\tf{}的系统结构以\ascii{C API}为界，将整个系统分为\emph{前端}和\emph{后端}两个子系统\footnote{事实上，后端系统中也存在\ascii{Client}的代码，前端系统是\tf{}对外的编程接口。在后面的章节，将详细地讨论这个问题。}。
+\refig{tf-architecture}に示すように、\tf{}のシステム構造は\ascii{C API}を境界として、システム全体を\emph{フロントエンド}と\emph{バックエンド}の2つのサブシステムに分割しています\footnote{実際には、バックエンドシステムにも\ascii{Client}のコードが存在し、フロントエンドシステムは\tf{}の外部プログラミングインターフェースです。後の章で、この問題について詳しく説明します。}。
 
 \begin{enum}
-  \eitem{前端系统：提供编程模型，负责构造计算图；}
-  \eitem{后端系统：提供运行时环境，负责执行计算图。} 
+  \eitem{フロントエンドシステム：プログラミングモデルを提供し、計算グラフの構築を担当します。}
+  \eitem{バックエンドシステム：ランタイム環境を提供し、計算グラフの実行を担当します。} 
 \end{enum}
 
-\tf{}的系统设计遵循良好的分层架构，后端系统的设计和实现可以进一步分解为\ascii{4}层。
+\tf{}のシステム設計は優れた層状アーキテクチャに従っており、バックエンドシステムの設計と実装はさらに\ascii{4}層に分解できます。
 
 \begin{enum}
-  \eitem{运行时：分别提供本地模式和分布式模式，并共享大部分设计和实现；}
-  \eitem{计算层：由各个\ascii{OP}的\ascii{Kernel}实现组成；在运行时，\ascii{Kernel}实现执行\ascii{OP}的具体数学运算；} 
-  \eitem{通信层：基于\ascii{gRPC}实现组件间的数据交换，并能够在支持\ascii{IB}网络的节点间实现\ascii{RDMA}通信；}
-  \eitem{设备层：计算设备是\ascii{OP}执行的主要载体，\tf{}支持多种异构的计算设备类型。}
+  \eitem{ランタイム：ローカルモードと分散モードをそれぞれ提供し、大部分の設計と実装を共有しています。}
+  \eitem{計算層：各\ascii{OP}の\ascii{Kernel}実装で構成されています。ランタイム時に、\ascii{Kernel}実装が\ascii{OP}の具体的な数学計算を実行します。} 
+  \eitem{通信層：\ascii{gRPC}ベースでコンポーネント間のデータ交換を実現し、\ascii{IB}ネットワークをサポートするノード間で\ascii{RDMA}通信を実現できます。}
+  \eitem{デバイス層：計算デバイスは\ascii{OP}実行の主要な担い手であり、\tf{}は多様な異種計算デバイスタイプをサポートしています。}
 \end{enum}
 
-从图操作的角度看待系统行为，\tf{}运行时就是完成计算图的构造、编排、及其运行。
+グラフ操作の観点からシステムの動作を見ると、\tf{}ランタイムは計算グラフの構築、編成、および実行を完了します。
 
 \begin{enum}
-  \eitem{表达图：构造计算图，但不执行图；}
-  \eitem{编排图：将计算图的节点以最佳的执行方案部署在集群中各个计算设备上执行；} 
-  \eitem{运行图：按照拓扑排序执行图中的节点，并启动每个\ascii{OP}的\ascii{Kernel}计算。}   
+  \eitem{グラフの表現：計算グラフを構築しますが、グラフは実行しません。}
+  \eitem{グラフの編成：計算グラフのノードを最適な実行計画でクラスター内の各計算デバイスに配置して実行します。} 
+  \eitem{グラフの実行：トポロジカルソートに従ってグラフ内のノードを実行し、各\ascii{OP}の\ascii{Kernel}計算を開始します。}   
 \end{enum}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/tf-architecture.png}
-\caption{TensorFlow系统架构}
+\caption{TensorFlowシステムアーキテクチャ}
  \label{fig:tf-architecture}
 \end{figure}
 
 \subsection{Client}
 
-\ascii{Client}是前端系统的主要组成部分，它是一个支持多语言的编程环境。\ascii{Client}基于\ascii{TensorFlow}的编程接口，构造计算图。目前，\ascii{TensorFlow}支持\ascii{Python}和\ascii{C++}的编程接口较为完善，尤其对\ascii{Python}的\ascii{API}支持最为全面。并且，对其他编程语言的\ascii{API}支持日益完善。
+\ascii{Client}はフロントエンドシステムの主要な構成部分であり、多言語をサポートするプログラミング環境です。\ascii{Client}は\ascii{TensorFlow}のプログラミングインターフェースに基づいて計算グラフを構築します。現在、\ascii{TensorFlow}は\ascii{Python}と\ascii{C++}のプログラミングインターフェースが比較的完全であり、特に\ascii{Python}の\ascii{API}サポートが最も包括的です。また、他のプログラミング言語の\ascii{API}サポートも日々向上しています。
 
-此时，\ascii{TensorFlow}并未执行任何的图计算，直至与后台计算引擎建立\ascii{Session}，并以\ascii{Session}为桥梁，建立\ascii{Client}与\ascii{Master}之间的通道，并将\ascii{Protobuf}格式的\ascii{GraphDef}序列化后传递给\ascii{Master}，启动计算图的执行过程。
+この時点では、\ascii{TensorFlow}はグラフ計算を実行せず、バックエンド計算エンジンと\ascii{Session}を確立し、\ascii{Session}をブリッジとして\ascii{Client}と\ascii{Master}の間のチャネルを確立し、\ascii{Protobuf}形式の\ascii{GraphDef}をシリアル化して\ascii{Master}に渡し、計算グラフの実行プロセスを開始するまで待機します。
 
 \subsection{Master}
 
-在分布式的运行时环境中，\ascii{Client}执行\code{Session.run}时，传递整个计算图给后端的\ascii{Master}。此时，计算图是完整的，常称为\emph{\ascii{Full Graph}}。随后，\ascii{Master}根据\code{Session.run}传递给它的\code{fetches, feeds}参数列表，反向遍历\ascii{Full Graph}，并按照依赖关系，对其实施剪枝，最终计算得到最小的依赖子图，常称为\ascii{Client Graph}。
+分散ランタイム環境では、\ascii{Client}が\code{Session.run}を実行すると、完全な計算グラフがバックエンドの\ascii{Master}に渡されます。この時点で、計算グラフは完全であり、通常\emph{\ascii{Full Graph}}と呼ばれます。その後、\ascii{Master}は\code{Session.run}から渡された\code{fetches, feeds}パラメータリストに基づいて\ascii{Full Graph}を逆方向にトラバースし、依存関係に従って剪定を行い、最終的に最小の依存サブグラフ（通常\ascii{Client Graph}と呼ばれる）を計算します。
 
-接着，\ascii{Master}负责将\ascii{Client Graph}按照任务的名称分裂(\code{SplitByTask})为多个\ascii{Graph Partition}；其中，每个\ascii{Worker}对应一个\ascii{Graph Partition}。随后，\ascii{Master}将\ascii{Graph Partition}分别注册到相应的\ascii{Worker}上，以便在不同的\ascii{Worker}上并发执行这些\ascii{Graph Partition}。最后，\ascii{Master}将通知所有\ascii{Work}启动相应\ascii{Graph Partition}的执行过程。
+次に、\ascii{Master}は\ascii{Client Graph}をタスク名に基づいて複数の\ascii{Graph Partition}に分割(\code{SplitByTask})します。各\ascii{Worker}は1つの\ascii{Graph Partition}に対応します。その後、\ascii{Master}は\ascii{Graph Partition}をそれぞれ対応する\ascii{Worker}に登録し、異なる\ascii{Worker}上でこれらの\ascii{Graph Partition}を並行して実行できるようにします。最後に、\ascii{Master}はすべての\ascii{Work}に通知して、対応する\ascii{Graph Partition}の実行プロセスを開始します。
 
-其中，\ascii{Work}之间可能存在数据依赖关系，\ascii{Master}并不参与两者之间的数据交换，它们两两之间互相通信，独立地完成交换数据，直至完成所有计算。
+\ascii{Work}間にデータ依存関係が存在する可能性がありますが、\ascii{Master}は両者間のデータ交換に関与せず、両者が互いに通信して独立してデータ交換を完了し、すべての計算が完了するまで待機します。
 
 \subsection{Worker}
 
-对于每一个任务，\tf{}都将启动一个\ascii{Worker}实例。\ascii{Worker}主要负责如下\ascii{3}个方面的职责：
+各タスクに対して、\tf{}は1つの\ascii{Worker}インスタンスを起動します。\ascii{Worker}は主に以下の\ascii{3}つの責任を担います：
 
 \begin{enum}
-  \eitem{处理来自\ascii{Master}的请求；}
-  \eitem{对注册的\ascii{Graph Partition}按照本地计算设备集实施二次分裂(\code{SplitByDevice})，并通知各个计算设备并发执行各个\ascii{Graph Partition}；}
-  \eitem{按照拓扑排序算法在某个计算设备上执行本地子图，并调度\ascii{OP}的\ascii{Kernel}实现；} 
-  \eitem{协同任务之间的数据通信。}
+  \eitem{\ascii{Master}からのリクエストを処理します。}
+  \eitem{登録された\ascii{Graph Partition}をローカル計算デバイスセットに基づいて二次分割(\code{SplitByDevice})し、各計算デバイスに通知して各\ascii{Graph Partition}を並行して実行します。}
+  \eitem{トポロジカルソートアルゴリズムに従って特定の計算デバイス上でローカルサブグラフを実行し、\ascii{OP}の\ascii{Kernel}実装をスケジュールします。} 
+  \eitem{タスク間のデータ通信を調整します。}
 \end{enum}
 
-首先，\ascii{Worker}收到\ascii{Master}发送过来的图执行命令，此时的计算图相对于\ascii{Worker}是完整的，也称为\ascii{Full Graph}，它对应于\ascii{Master}的一个\ascii{Graph Partition}。随后，\ascii{Worker}根据当前可用的硬件环境，包括\ascii{(GPU/CPU)}资源，按照\ascii{OP}设备的约束规范，再将图分裂\code{(SplitByDevice)}为多个\ascii{Graph Partition}；其中，每个计算设备对应一个\ascii{Graph Partition}。接着，\ascii{Worker}启动所有的\ascii{Graph Partition}的执行。最后，对于每一个计算设备，\ascii{Worker}将按照计算图中节点之间的依赖关系执行拓扑排序算法，并依次调用\ascii{OP}的\ascii{Kernel}实现，完成\ascii{OP}的运算(一种典型的多态实现技术)。
+まず、\ascii{Worker}は\ascii{Master}から送信されたグラフ実行コマンドを受信します。この時点での計算グラフは\ascii{Worker}に対して完全であり、\ascii{Full Graph}とも呼ばれます。これは\ascii{Master}の1つの\ascii{Graph Partition}に対応します。次に、\ascii{Worker}は現在利用可能なハードウェア環境（\ascii{(GPU/CPU)}リソースを含む）に基づいて、\ascii{OP}デバイスの制約仕様に従って、グラフをさらに複数の\ascii{Graph Partition}に分割\code{(SplitByDevice)}します。各計算デバイスは1つの\ascii{Graph Partition}に対応します。その後、\ascii{Worker}はすべての\ascii{Graph Partition}の実行を開始します。最後に、各計算デバイスに対して、\ascii{Worker}は計算グラフ内のノード間の依存関係に従ってトポロジカルソートアルゴリズムを実行し、順次\ascii{OP}の\ascii{Kernel}実装を呼び出して\ascii{OP}の計算を完了します（典型的な多態実装技術）。
 
-其中，\ascii{Worker}还要负责将\ascii{OP}运算的结果发送到其他的\ascii{Worker}上去，或者接受来自其他\ascii{Worker}发送给它的运算结果，以便实现\ascii{Worker}之间的数据交互。\tf{}特化实现了源设备和目标设备间的\ascii{Send/Recv}。
+また、\ascii{Worker}は\ascii{OP}の計算結果を他の\ascii{Worker}に送信したり、他の\ascii{Worker}から送信された計算結果を受信したりして、\ascii{Worker}間のデータ相互作用を実現する責任があります。\tf{}は送信元デバイスと宛先デバイス間の\ascii{Send/Recv}を特別に実装しています。
 
 \begin{enum}
-  \eitem{本地\ascii{CPU}与\ascii{GPU}之间，使用\code{cudaMemcpyAsync}实现异步拷贝；}
-  \eitem{本地\ascii{GPU}之间，使用端到端的\ascii{DMA}操作，避免主机端\ascii{CPU}的拷贝。} 
+  \eitem{ローカル\ascii{CPU}と\ascii{GPU}間では、\code{cudaMemcpyAsync}を使用して非同期コピーを実現します。}
+  \eitem{ローカル\ascii{GPU}間では、エンドツーエンドの\ascii{DMA}操作を使用し、ホスト側\ascii{CPU}のコピーを回避します。} 
 \end{enum}
 
-对于任务间的通信，\tf{}支持多种通信协议。
+タスク間の通信について、\tf{}は複数の通信プロトコルをサポートしています。
 
 \begin{enum}
-  \eitem{\ascii{gRPC over TCP；}}
-  \eitem{\ascii{RDMA over Converged Ethernet。}} 
+  \eitem{\ascii{gRPC over TCP}}
+  \eitem{\ascii{RDMA over Converged Ethernet}} 
 \end{enum}
 
-此外，\tf{}已经初步开始支持\ascii{cuNCCL}库，用于改善多\ascii{GPU}间的通信。
+さらに、\tf{}は\ascii{cuNCCL}ライブラリのサポートを開始し、複数の\ascii{GPU}間の通信を改善しています。
 
 \subsection{Kernel}
 
-\ascii{Kernel}是\ascii{OP}在某种硬件设备的特定实现，它负责执行\ascii{OP}的具体运算。目前，\ascii{TensorFlow}系统中包含\ascii{200}多个标准的\ascii{OP}，包括数值计算，多维数组操作，控制流，状态管理等。
+\ascii{Kernel}は特定のハードウェアデバイス上での\ascii{OP}の特定の実装であり、\ascii{OP}の具体的な計算を実行する責任があります。現在、\ascii{TensorFlow}システムには\ascii{200}以上の標準\ascii{OP}が含まれており、数値計算、多次元配列操作、制御フロー、状態管理などが含まれています。
 
-一般每一个\ascii{OP}根据设备类型都会存在一个优化了的\ascii{Kernel}实现。在运行时，运行时根据\ascii{OP}的设备约束规范，及其本地设备的类型，为\ascii{OP}选择特定的\ascii{Kernel}实现，完成该\ascii{OP}的计算。
+一般的に、各\ascii{OP}にはデバイスタイプに応じて最適化された\ascii{Kernel}実装が存在します。ランタイム時に、ランタイムは\ascii{OP}のデバイス制約仕様とローカルデバイスのタイプに基づいて、\ascii{OP}の特定の\ascii{Kernel}実装を選択し、その\ascii{OP}の計算を完了します。
 
-其中，大多数\ascii{Kernel}基于\code{Eigen::Tensor}实现。\code{Eigen::Tensor}是一个使用\ascii{C++}模板技术，为多核\ascii{CPU/GPU}生成高效的并发代码。但是，\ascii{TensorFlow}也可以灵活地直接使用\ascii{cuDNN, cuNCCL, cuBLAS}实现更高效的\ascii{Kernel}。
+多くの\ascii{Kernel}は\code{Eigen::Tensor}に基づいて実装されています。\code{Eigen::Tensor}は\ascii{C++}テンプレート技術を使用して、マルチコア\ascii{CPU/GPU}向けに効率的な並行コードを生成します。ただし、\ascii{TensorFlow}は柔軟に\ascii{cuDNN, cuNCCL, cuBLAS}を直接使用して、より効率的な\ascii{Kernel}を実装することもできます。
 
-此外，\ascii{TensorFlow}实现了矢量化技术，在高吞吐量、以数据为中心的应用需求中，及其移动设备中，实现更高效的推理。如果对于复合\ascii{OP}的子计算过程很难表示，或执行效率低下，\ascii{TensorFlow}甚至支持更高效的\ascii{Kernel}注册，其扩展性表现非常优越。
+さらに、\ascii{TensorFlow}はベクトル化技術を実装し、高スループット、データ中心のアプリケーション要件や、モバイルデバイスでより効率的な推論を実現しています。複合\ascii{OP}のサブ計算プロセスの表現が困難な場合や、実行効率が低い場合、\ascii{TensorFlow}はさらに効率的な\ascii{Kernel}登録をサポートしており、その拡張性は非常に優れています。
 
 \end{content}
 
-\section{图控制}
+\section{グラフ制御}
 
 \begin{content}
 
-通过一个最简单的例子，进一步抽丝剥茧，逐渐挖掘出\tf{}计算图的控制与运行机制。
+最も簡単な例を通じて、さらに糸を解きほぐし、徐々に\tf{}計算グラフの制御と実行メカニズムを掘り下げていきます。
 
-\subsection{组建集群}
+\subsection{クラスターの構築}
 
-如\refig{tf-1ps-1worker}所示。假如存在一个简单的分布式环境：\ascii{1 PS + 1 Worker}，并将其划分为两个任务：
+\refig{tf-1ps-1worker}に示すように、簡単な分散環境が存在すると仮定します：\ascii{1 PS + 1 Worker}、そしてこれを2つのタスクに分割します：
 
 \begin{enum}
-  \eitem{\ascii{ps0}: 使用\code{/job:ps/task:0}标记，负责模型参数的存储和更新；}
-  \eitem{\ascii{worker0}: \code{/job:worker/task:0}标记，负责模型的训练。} 
+  \eitem{\ascii{ps0}: \code{/job:ps/task:0}でマークされ、モデルパラメータの保存と更新を担当します。}
+  \eitem{\ascii{worker0}: \code{/job:worker/task:0}でマークされ、モデルのトレーニングを担当します。} 
 \end{enum}
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/tf-1ps-1worker.png}
-\caption{TensorFlow集群：\ascii{1 PS + 1 Worker}}
+\caption{TensorFlowクラスター：\ascii{1 PS + 1 Worker}}
  \label{fig:tf-1ps-1worker}
 \end{figure}
 
-\subsection{图构造}
+\subsection{グラフ構築}
 
-如\refig{tf-graph-construction}所示。\ascii{Client}构建了一个简单计算图；首先，将$w$与$x$进行矩阵相乘，再与截距$b$按位相加，最后更新至$s$中。
+\refig{tf-graph-construction}に示すように、\ascii{Client}は簡単な計算グラフを構築しました。まず、$w$と$x$を行列乗算し、次に切片$b$と要素ごとに加算し、最後に$s$に更新します。
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/tf-graph-construction.png}
-\caption{图构造}}
+\caption{グラフ構築}
  \label{fig:tf-graph-construction}
 \end{figure}
 
-\subsection{图执行}
-
-如\refig{tf-graph-execution}所示。首先，\ascii{Client}创建一个\code{Session}实例，建立与\ascii{Master}之间的通道；接着，\ascii{Client}通过调用\code{Session.run}将计算图传递给\ascii{Master}。
-
-随后，\ascii{Master}便开始启动一次\ascii{Step}的图计算过程。在执行之前，\ascii{Master}会实施一系列优化技术，例如\emph{公共表达式消除}，\emph{常量折叠}等。最后，\ascii{Master}负责任务之间的协同，执行优化后的计算图。
-
+\subsection{グラフ実行}
+\refig{tf-graph-execution}に示すように、まず\ascii{Client}は\code{Session}インスタンスを作成し、\ascii{Master}との間のチャネルを確立します。次に、\ascii{Client}は\code{Session.run}を呼び出して計算グラフを\ascii{Master}に渡します。
+その後、\ascii{Master}は1回の\ascii{Step}のグラフ計算プロセスを開始します。実行前に、\ascii{Master}は\emph{共通部分式の削除}や\emph{定数畳み込み}などの一連の最適化技術を適用します。最後に、\ascii{Master}はタスク間の協調を担当し、最適化された計算グラフを実行します。
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/tf-graph-execution.png}
-\caption{图执行}}
- \label{fig:tf-graph-execution}
+\caption{グラフ実行}
+\label{fig:tf-graph-execution}
 \end{figure}
-
-\subsubsection{图分裂}
-
-如\refig{tf-graph-split-by-task}所示，存在一种合理的图划分算法。\ascii{Master}将模型参数相关的\ascii{OP}划分为一组，并放置在\ascii{ps0}任务上；其他\ascii{OP}划分为另外一组，放置在\ascii{worker0}任务上执行。
-
+\subsubsection{グラフ分割}
+\refig{tf-graph-split-by-task}に示すように、合理的なグラフ分割アルゴリズムが存在します。\ascii{Master}はモデルパラメータに関連する\ascii{OP}を1つのグループにまとめ、\ascii{ps0}タスク上に配置します。他の\ascii{OP}は別のグループにまとめられ、\ascii{worker0}タスク上で実行されます。
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/tf-graph-split-by-task.png}
-\caption{图分裂：按任务划分}}
- \label{fig:tf-graph-split-by-task}
+\caption{グラフ分割：タスクによる分割}
+\label{fig:tf-graph-split-by-task}
 \end{figure}
-
-\subsubsection{子图注册}
-
-如\refig{tf-register-graph}所示。在图分裂过程中，如果计算图的边跨越节点或设备，\ascii{Master}将该边实施分裂，在两个节点或设备之间插入\ascii{Send}和\ascii{Recv}节点，实现数据的传递。
-
-其中，\code{Send}和\code{Recv}节点也是\ascii{OP}，只不过它们是两个特殊的\ascii{OP}，由内部运行时管理和控制，对用户不可见；并且，它们仅用于数据的通信，并没有任何数据计算的逻辑。
-
-最后，\ascii{Master}通过调用\code{RegisterGraph}接口，将子图注册给相应的\ascii{Worker}上，并由相应的\ascii{Worker}负责执行运算。
-
+\subsubsection{サブグラフ登録}
+\refig{tf-register-graph}に示すように、グラフ分割プロセス中に計算グラフのエッジがノードまたはデバイスをまたぐ場合、\ascii{Master}はそのエッジを分割し、2つのノードまたはデバイス間に\ascii{Send}と\ascii{Recv}ノードを挿入してデータの転送を実現します。
+ここで、\code{Send}と\code{Recv}ノードも\ascii{OP}ですが、特別な\ascii{OP}であり、内部ランタイムによって管理・制御され、ユーザーには見えません。また、これらはデータ通信のみに使用され、データ計算のロジックは含まれていません。
+最後に、\ascii{Master}は\code{RegisterGraph}インターフェースを呼び出してサブグラフを対応する\ascii{Worker}に登録し、対応する\ascii{Worker}が計算を実行する責任を負います。
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/tf-register-graph.png}
-\caption{子图注册：插入Send和Recv节点}}
- \label{fig:tf-register-graph}
+\caption{サブグラフ登録：SendとRecvノードの挿入}
+\label{fig:tf-register-graph}
 \end{figure}
-
-\subsubsection{子图运算}
-
-如\refig{tf-run-graph}所示。\ascii{Master}通过调用\code{RunGraph}接口，通知所有\ascii{Worker}执行子图运算。其中，\ascii{Worker}之间可以通过调用\code{RecvTensor}接口，完成数据的交换。
-
+\subsubsection{サブグラフ計算}
+\refig{tf-run-graph}に示すように、\ascii{Master}は\code{RunGraph}インターフェースを呼び出して、すべての\ascii{Worker}にサブグラフ計算の実行を通知します。ここで、\ascii{Worker}間は\code{RecvTensor}インターフェースを呼び出してデータ交換を完了できます。
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/tf-run-graph.png}
-\caption{子图执行}}
- \label{fig:tf-run-graph}
+\caption{サブグラフ実行}
+\label{fig:tf-run-graph}
 \end{figure}
-
 \end{content}
-
-\section{会话管理}
-	
+\section{セッション管理}
 \begin{content}
-
-接下来，通过概述会话的整个生命周期过程，及其与图控制之间的关联关系，进一步揭开运行时的内部运行机制。
-
-\subsection{创建会话}
-
-首先，\ascii{Client}\emph{首次}执行\code{tf.Session.run}时，会将整个图序列化后，通过\ascii{gRPC}发送\code{CreateSessionRequest}消息，将图传递给\ascii{Master}。
-
-随后，\ascii{Master}创建一个\code{MasterSession}实例，并用全局唯一的\code{handle}标识，最终通过\code{CreateSessionResponse}返回给\ascii{Client}。如\refig{tf-create-session-overview}所示。
-
+次に、セッションの全ライフサイクルプロセスとグラフ制御との関連性を概説することで、ランタイムの内部動作メカニズムをさらに明らかにします。
+\subsection{セッションの作成}
+まず、\ascii{Client}が\emph{初めて}\code{tf.Session.run}を実行するとき、グラフ全体をシリアル化し、\ascii{gRPC}を通じて\code{CreateSessionRequest}メッセージを送信して、グラフを\ascii{Master}に渡します。
+その後、\ascii{Master}は\code{MasterSession}インスタンスを作成し、グローバルに一意な\code{handle}で識別し、最終的に\code{CreateSessionResponse}を通じて\ascii{Client}に返します。\refig{tf-create-session-overview}に示すとおりです。
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/tf-create-session-overview.png}
-\caption{创建会话}}
- \label{fig:tf-create-session-overview}
+\caption{セッションの作成}
+\label{fig:tf-create-session-overview}
 \end{figure}
-
-\subsection{迭代运行}
-
-随后，\ascii{Client}会启动迭代执行的过程，并称每次迭代为一次\ascii{Step}。此时，\ascii{Client}发送\code{RunStepRequest}消息给\ascii{Master}，消息携带\code{handle}标识，用于\ascii{Master}索引相应的\code{MasterSession}实例。如\refig{tf-run-step-overview}所示。
-
+\subsection{反復実行}
+その後、\ascii{Client}は反復実行プロセスを開始し、各反復を1回の\ascii{Step}と呼びます。このとき、\ascii{Client}は\code{RunStepRequest}メッセージを\ascii{Master}に送信し、メッセージには\code{handle}識別子が含まれ、\ascii{Master}が対応する\code{MasterSession}インスタンスをインデックスするために使用されます。\refig{tf-run-step-overview}に示すとおりです。
 \begin{figure}[!h]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/tf-run-step-overview.png}
-\caption{迭代执行}}
- \label{fig:tf-run-step-overview}
+\caption{反復実行}
+\label{fig:tf-run-step-overview}
 \end{figure}
-
-\subsubsection{注册子图}
-
-\ascii{Master}收到\code{RunStepRequest}消息后，将执行图剪枝，分裂，优化等操作。最终按照任务\ascii{(Task)}，将图划分为多个子图片段\ascii{(Graph Partition)}。随后，\ascii{Master}向各个\ascii{Worker}发送\code{RegisterGraphRequest}消息，将子图片段依次注册到各个\ascii{Worker}节点上。
-
-当\ascii{Worker}收到\code{RegisterGraphRequest}消息后，再次实施分裂操作，最终按照设备\ascii{(Device)}，将图划分为多个子图片段\ascii{(Graph Partition)}。\footnote{在分布式运行时，图分裂经过两级分裂过程。在\ascii{Master}上按照任务分裂，而在\ascii{Worker}按照设备分裂。因此，得到结果都称为子图片段，它们仅存在范围，及其大小的差异。}
-
-当\ascii{Worker}完成子图注册后，通过返回\code{RegisterGraphReponse}消息，并携带\code{graph\_handle}标识。这是因为\ascii{Worker}可以并发注册并运行多个子图，每个子图使用\code{graph\_handle}唯一标识。
-
-\subsubsection{运行子图}
-
-\ascii{Master}完成子图注册后，将广播所有\ascii{Worker}并发执行所有子图。这个过程是通过\ascii{Master}发送\code{RunGraphRequest}消息给\ascii{Worker}完成的。其中，消息中携带\code{(session\_handle, graph\_handle, step\_id)}三元组的标识信息，用于\ascii{Worker}索引相应的子图。
-
-\ascii{Worker}收到消息\code{RunGraphRequest}消息后，\ascii{Worker}根据\code{graph\_handle}索引相应的子图。最终，\ascii{Worker}启动本地所有计算设备并发执行所有子图。其中，每个子图放置在单独的\code{Executor}中执行，\code{Executor}将按照拓扑排序算法完成子图片段的计算。上述算法可以形式化地描述为如下代码。
-
-
+\subsubsection{サブグラフ登録}
+\ascii{Master}が\code{RunStepRequest}メッセージを受信すると、グラフの剪定、分割、最適化などの操作を実行します。最終的に、タスク\ascii{(Task)}に従ってグラフを複数のサブグラフ断片\ascii{(Graph Partition)}に分割します。その後、\ascii{Master}は各\ascii{Worker}に\code{RegisterGraphRequest}メッセージを送信し、サブグラフ断片を各\ascii{Worker}ノードに順次登録します。
+\ascii{Worker}が\code{RegisterGraphRequest}メッセージを受信すると、再度分割操作を実施し、最終的にデバイス\ascii{(Device)}に従ってグラフを複数のサブグラフ断片\ascii{(Graph Partition)}に分割します。\footnote{分散ランタイムでは、グラフ分割は2段階の分割プロセスを経ます。\ascii{Master}上ではタスクに従って分割し、\ascii{Worker}上ではデバイスに従って分割します。したがって、得られる結果はどちらもサブグラフ断片と呼ばれますが、範囲とサイズの違いのみが存在します。}
+\ascii{Worker}がサブグラフ登録を完了すると、\code{RegisterGraphReponse}メッセージを返し、\code{graph_handle}識別子を含めます。これは、\ascii{Worker}が複数のサブグラフを並行して登録・実行できるため、各サブグラフを\code{graph_handle}で一意に識別するためです。
+\subsubsection{サブグラフ実行}
+\ascii{Master}がサブグラフ登録を完了すると、すべての\ascii{Worker}にブロードキャストしてすべてのサブグラフを並行実行します。このプロセスは、\ascii{Master}が\code{RunGraphRequest}メッセージを\ascii{Worker}に送信することで完了します。メッセージには\code{(session_handle, graph_handle, step_id)}三つ組の識別情報が含まれ、\ascii{Worker}が対応するサブグラフをインデックスするために使用されます。
+\ascii{Worker}が\code{RunGraphRequest}メッセージを受信すると、\ascii{Worker}は\code{graph_handle}に基づいて対応するサブグラフをインデックスします。最終的に、\ascii{Worker}はローカルのすべての計算デバイスを起動してすべてのサブグラフを並行実行します。各サブグラフは個別の\code{Executor}内で実行され、\code{Executor}はトポロジカルソートアルゴリズムに従ってサブグラフ断片の計算を完了します。上記のアルゴリズムは以下のコードで形式的に記述できます。
 \begin{leftbar}
-  \begin{python}
+\begin{python}
+\end{python}
 def run_partitions(rendezvous, executors_and_partitions, inputs, outputs):
   rendezvous.send(inputs)
   for (executor, partition) in executors_and_partitions: 
     executor.run(partition)
   rendezvous.recv(outputs)
-  \end{python}
 \end{leftbar}
-
-\subsubsection{交换数据}
-
-如果两个设备之间需要交换数据，则通过插入\ascii{Send/Recv}节点完成的。特殊地，如果两个\ascii{Worker}之间需要交换数据，则需要涉及跨进程间的通信。
-
-此时，需要通过接收端主动发送\code{RecvTensorRequest}消息到发送方，再从发送方的信箱里取出对应的\ascii{Tensor}，并通过\code{RecvTensorResponse}返回。如\refig{tf-recv-tensor-overview}所示。
-
+\subsubsection{データ交換}
+2つのデバイス間でデータ交換が必要な場合、\ascii{Send/Recv}ノードの挿入によって完了されます。特に、2つの\ascii{Worker}間でデータ交換が必要な場合、プロセス間通信が必要になります。
+このとき、受信側が能動的に\code{RecvTensorRequest}メッセージを送信側に送信し、送信側のメールボックスから対応する\ascii{Tensor}を取り出し、\code{RecvTensorResponse}を通じて返す必要があります。\refig{tf-recv-tensor-overview}に示すとおりです。
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/tf-recv-tensor-overview.png}
-\caption{Worker之间的数据交换}}
- \label{fig:tf-recv-tensor-overview}
+\caption{Worker間のデータ交換}
+\label{fig:tf-recv-tensor-overview}
 \end{figure}
-
-\subsection{关闭会话}
-
-当计算完成后，\ascii{Client}向\ascii{Master}发送\code{CloseSessionReq}消息。\ascii{Master}收到消息后，开始释放\code{MasterSession}所持有的所有资源。如\refig{tf-close-session-overview}所示。
-
+\subsection{セッションの終了}
+計算が完了すると、\ascii{Client}は\ascii{Master}に\code{CloseSessionReq}メッセージを送信します。\ascii{Master}がメッセージを受信すると、\code{MasterSession}が保持するすべてのリソースの解放を開始します。\refig{tf-close-session-overview}に示すとおりです。
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/tf-close-session-overview.png}
-\caption{关闭会话}}
- \label{fig:tf-close-session-overview}
+\caption{セッションの終了}
+\label{fig:tf-close-session-overview}
 \end{figure}
-
 \end{content}

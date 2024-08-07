@@ -3,156 +3,156 @@
 \qauthor{\ascii{- Martin Flower}}
 \end{savequote}
 
-\chapter{破冰之旅} 
+\chapter{はじめに} 
 \label{ch:ice-breaker}
 
 \begin{content}
 
-在开始探究\tf{}内核之前，亲自动手实践模型的训练，熟悉模型训练的基本方法和调优技术，对于理解后续章节的内容将大有裨益。通过本文学习和实践，将了解到如何构建并训练出能够识别手写数字的神经网络\footnote{ 本章内容摘自\ascii{Martin G\"{o}rner}在\ascii{Codelabs}上发表的文章：\href{https://codelabs.developers.google.com/codelabs/cloud-tensorflow-mnist}{Tensorflow and deep learning, without a PhD}，经由\ascii{Martin G\"{o}rner}同意，授权该文章在本书中发表。}。
+\tf{}カーネルの探求を始める前に、モデルのトレーニングを実際に体験し、基本的なトレーニング方法とチューニング技術に慣れることは、以降の章の内容を理解する上で非常に有益です。この記事を通じて学習と実践を行うことで、手書き数字を認識できるニューラルネットワークの構築とトレーニング方法を理解することができます\footnote{本章の内容は\ascii{Martin G\"{o}rner}が\ascii{Codelabs}で発表した記事：\href{https://codelabs.developers.google.com/codelabs/cloud-tensorflow-mnist}{Tensorflow and deep learning, without a PhD}から抜粋されています。\ascii{Martin G\"{o}rner}の許可を得て、本書での掲載が承認されています。}。
 
-本章将循序渐进地分别使用单层感知器模型，多层感知器模型，最后尝试使用卷积神经网络。并在训练过程中，介绍了算法调优的一些常用技术，包括选择更好的激活函数，应用学习速率衰减的技术，实施\ascii{Dropout}技术等。最终，将模型的准确率提升至\ascii{99％}以上。
+本章では、段階的にシングルレイヤーパーセプトロンモデル、マルチレイヤーパーセプトロンモデルを使用し、最後に畳み込みニューラルネットワークを試みます。そして、トレーニング過程において、より良い活性化関数の選択、学習率減衰技術の適用、\ascii{Dropout}技術の実施など、アルゴリズムチューニングのいくつかの一般的な技術を紹介します。最終的に、モデルの精度を\ascii{99％}以上に向上させます。
 
-在介绍每一种网络模型之前，将简单给出该模型的算法理论知识，帮助大家更好地理解程序的内容。但是，本书不是介绍机器学习算法的专业书籍，如需了解更多相关算法内容，请查阅相关文献和论文。
+各ネットワークモデルの紹介に先立ち、そのモデルのアルゴリズム理論知識を簡単に説明し、プログラムの内容をよりよく理解できるようにします。ただし、本書は機械学習アルゴリズムを紹介する専門書ではありません。関連するアルゴリズムの内容についてより詳しく知りたい場合は、関連文献や論文を参照してください。
 
 \end{content}
 
-\section{问题提出}
+\section{問題提起}
 
 \begin{content}
 
-本章使用\ascii{MNIST}数据集完成手写数字的网络模型训练，它包含了\ascii{60000}个训练样本数据；其中，包括\ascii{10000}个测试样本数据。如\refig{mnist-x}所示，对于任意一个样本数据$x$，使用$28 \times 28$像素的数字矩阵表示。为了简化，将$28 \times 28$的矩阵实施扁平化处理，得到长度为\ascii{784}的一维向量。
+本章では\ascii{MNIST}データセットを使用して手書き数字のネットワークモデルトレーニングを完了します。これには\ascii{60000}個のトレーニングサンプルデータが含まれています。そのうち、\ascii{10000}個のテストサンプルデータが含まれています。\refig{mnist-x}に示すように、任意のサンプルデータ$x$に対して、$28 \times 28$ピクセルの数字行列を使用して表現します。簡略化のため、$28 \times 28$の行列をフラット化処理し、長さ\ascii{784}の一次元ベクトルを得ます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/mnist-x.png}
-\caption{MNIST样本数据表示}
+\caption{MNISTサンプルデータ表現}
  \label{fig:mnist-x}
 \end{figure}
 
-\subsection{样本数据集}
+\subsection{サンプルデータセット}
 
-因此，在\ascii{MNIST}训练数据集中，\code{mnist.train.images}是一个\code{[60000, 784]}的二维矩阵。其中，矩阵中每一个元素，表示图片中某个像素的强度值，其值介于\ascii{0}和\ascii{1}之间。如\refig{mnist-train-xs}所示。
+したがって、\ascii{MNIST}トレーニングデータセットでは、\code{mnist.train.images}は\code{[60000, 784]}の二次元行列です。この行列の各要素は、画像の特定のピクセルの強度値を表し、その値は\ascii{0}から\ascii{1}の間です。\refig{mnist-train-xs}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/mnist-train-xs.png}
-\caption{MNIST训练数据集：输入数据集}
+\caption{MNISTトレーニングデータセット：入力データセット}
  \label{fig:mnist-train-xs}
 \end{figure}
 
-相对应地，\ascii{MNIST}数据集的标签是介于\ascii{0}到\ascii{9}的数字，\code{mnist.train.labels}是一个\code{[60000, 10]}的二维矩阵，其中每一行是一个\ascii{\quo{one-hot}}向量。如\refig{mnist-train-ys}所示。
+それに対応して、\ascii{MNIST}データセットのラベルは\ascii{0}から\ascii{9}の数字で、\code{mnist.train.labels}は\code{[60000, 10]}の二次元行列で、各行は\ascii{\quo{one-hot}}ベクトルです。\refig{mnist-train-ys}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/mnist-train-ys.png}
-\caption{MNIST训练数据集：标签数据集}
+\caption{MNISTトレーニングデータセット：ラベルデータセット}
  \label{fig:mnist-train-ys}
 \end{figure}
 
-\subsection{图示说明}
+\subsection{図示説明}
 
 \begin{content}
 
-为了更好地可视化整个训练过程，使用\ascii{matplotlib}工具包绘制了\ascii{5}种类型的画板。如\refig{mnist-training-digits}所示，表示一个\ascii{mini-batch}的训练样本数据集。其中，\code{batch\_size = 100}，白色背景表示数字被正确识别；而红色背景表示数字被误分类，手写数字的左侧标识了正确的标签值，而右侧标识了错误的预测值。
+トレーニング全過程をより良く可視化するために、\ascii{matplotlib}ツールパッケージを使用して\ascii{5}種類のボードを描画しました。\refig{mnist-training-digits}に示すように、これは1つの\ascii{mini-batch}のトレーニングサンプルデータセットを表しています。ここで、\code{batch\_size = 100}、白い背景は数字が正しく認識されたことを示し、赤い背景は数字が誤分類されたことを示します。手書き数字の左側は正しいラベル値を示し、右側は誤った予測値を示しています。
 
-\ascii{MNIST}拥有\ascii{50000}个训练样本，如果\code{batch\_size}为\ascii{100}，则需要迭代\ascii{500}次才能完整地遍历一次训练样本数据集，常称为一个\ascii{epoch}周期。
+\ascii{MNIST}は\ascii{50000}個のトレーニングサンプルを持っています。\code{batch\_size}が\ascii{100}の場合、トレーニングサンプルデータセット全体を一度完全に走査するには\ascii{500}回の反復が必要で、これは一般に1つの\ascii{epoch}周期と呼ばれます。
 
 \begin{remark}
-本章示例代码未使用\ascii{TensorBoard}，而是用了\ascii{matplotlib}，在训练时可以实时观察误差和精度的曲线变化。
+本章のサンプルコードでは\ascii{TensorBoard}を使用せず、代わりに\ascii{matplotlib}を使用しているため、トレーニング中にエラーと精度の曲線変化をリアルタイムで観察できます。
 \end{remark}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/mnist-training-digits.jpeg}
-\caption{一次mini-batch的训练样本数据集，其中\code{batch\_size=100}}
+\caption{1回のmini-batchのトレーニングサンプルデータセット、ここで\code{batch\_size=100}}
  \label{fig:mnist-training-digits}
 \end{figure}
 
-如\refig{mnist-test-digits}所示，\ascii{MNIST}使用了规模为\ascii{10000}的测试样本数据集测试模型的当前精度。其中，左侧表示目前模型的大致精度；同样地，白色背景表示数字被正确识别；而红色背景表示数字被误分类，手写数字的左侧标识了正确的标签值，而右侧标识了错误的预测值。
+\refig{mnist-test-digits}に示すように、\ascii{MNIST}は\ascii{10000}のスケールのテストサンプルデータセットを使用して、モデルの現在の精度をテストしています。左側は現在のモデルの大まかな精度を示しています。同様に、白い背景は数字が正しく認識されたことを示し、赤い背景は数字が誤分類されたことを示します。手書き数字の左側は正しいラベル値を示し、右側は誤った予測値を示しています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/mnist-test-digits.jpeg}
-\caption{当前的模型精度：基于测试样本数据集}
+\caption{現在のモデル精度：テストサンプルデータセットに基づく}
  \label{fig:mnist-test-digits}
 \end{figure}
 
-如\refig{mnist-cross-entropy-loss-fig}所示，使用交叉熵函数量化预测值与标签值之前的误差。其中，\ascii{x}轴表示迭代的次数，\ascii{y}轴表示损失值。另外，基于训练样本数据集，损失值的曲线抖动较大；而基于测试样本数据集，损失值的曲线抖动较小。
+\refig{mnist-cross-entropy-loss-fig}に示すように、クロスエントロピー関数を使用して予測値とラベル値の間の誤差を定量化しています。ここで、\ascii{x}軸は反復回数を表し、\ascii{y}軸は損失値を表します。また、トレーニングサンプルデータセットに基づく損失値の曲線は大きく振動していますが、テストサンプルデータセットに基づく損失値の曲線の振動は小さくなっています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/mnist-cross-entropy-loss-fig.jpeg}
-\caption{训练和测试的交叉熵损失}
+\caption{トレーニングとテストのクロスエントロピー損失}
  \label{fig:mnist-cross-entropy-loss-fig}
 \end{figure}
 
-如\refig{mnist-accuracy-fig}所示，可以实时计算得到模型在当前训练数据集和测试集上的精度。其中，\ascii{x}轴表示迭代的次数，\ascii{y}轴表示精度值。同理，基于训练样本数据集，精度曲线抖动较大；而基于测试样本数据集，精度曲线抖动较小。
+\refig{mnist-accuracy-fig}に示すように、現在のトレーニングデータセットとテストセットにおけるモデルの精度をリアルタイムで計算することができます。ここで、\ascii{x}軸は反復回数を表し、\ascii{y}軸は精度値を表します。同様に、トレーニングサンプルデータセットに基づく精度曲線は大きく振動していますが、テストサンプルデータセットに基づく精度曲線の振動は小さくなっています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/mnist-accuracy-fig.jpeg}
-\caption{训练和测试的精度}
+\caption{トレーニングとテストの精度}
  \label{fig:mnist-accuracy-fig}
 \end{figure}
 
-如\refig{mnist-weight-fig}所示，对于模型的每一个训练参数(包括偏置)，可以统计得到其对应的数值分布图。当模型不能收敛时，参数的数值分布图能够给出有帮助的提示信息。
+\refig{mnist-weight-fig}に示すように、モデルの各トレーニングパラメータ（バイアスを含む）について、対応する数値分布図を統計的に得ることができます。モデルが収束しない場合、パラメータの数値分布図は有用なヒント情報を提供することができます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/mnist-weight-fig.png}
-\caption{权重分布图}
+\caption{重み分布図}
  \label{fig:mnist-weight-fig}
 \end{figure}
 
 \end{content}
 
-\section{单层感知器}
+\section{シングルレイヤーパーセプトロン}
 
 \begin{content}
 
-首先，尝试构建\ascii{10}个神经元的单层感知器。如\refig{mnist-slp}所示，对于诸如手写数字识别的多分类问题，理论上常使用\ascii{softmax}的激活函数。
+まず、\ascii{10}個のニューロンを持つシングルレイヤーパーセプトロンの構築を試みます。\refig{mnist-slp}に示すように、手書き数字認識のような多クラス分類問題に対しては、理論的には通常\ascii{softmax}活性化関数を使用します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-slp.png}
-\caption{单层感知器}
+\caption{シングルレイヤーパーセプトロン}
  \label{fig:mnist-slp}
 \end{figure}
 
-\subsection{理论基础}
+\subsection{理論的基礎}
 
-理论上，\ascii{softmax}回归是\ascii{logistic}回归的广义扩展。其中，\ascii{logistic}回归是为了解决二分类问题，即$y \in \{ 0,1\}$；而\ascii{softmax}回归是为了解决$ k $分类问题，即$y \in \{ 1,2,...,k\}$。
+理論的には、\ascii{softmax}回帰は\ascii{logistic}回帰の一般化拡張です。ここで、\ascii{logistic}回帰は二値分類問題を解決するためのものです。つまり、$y \in \{ 0,1\}$です。一方、\ascii{softmax}回帰は$ k $クラス分類問題を解決するためのものです。つまり、$y \in \{ 1,2,...,k\}$です。
 
-\subsubsection{符号定义}
+\subsubsection{記号の定義}
 
-为了形式化地描述\ascii{softmax}回归问题，此处定义了一些常用符号。
+\ascii{softmax}回帰問題を形式的に記述するために、ここでいくつかの一般的な記号を定義します。
 
  \begin{itemize}
-   \item \ascii{训练样本集}: $ S = \{ ({x^{(i)}},{y^{(i)}});i = 1,2,...,m\} $
-   \item \ascii{第$i$个训练样本}: $ ({x^{(i)}},{y^{(i)}}) $
-   \item \ascii{样本输入}: $ x = ({x_1},{x_2},...,{x_n})^{T}  \in {\mathbb{R}^n} $
-   \item \ascii{样本标签(one-hot)}: $ y = ({y_1},{y_2},...,{y_k})^{T} \in {\mathbb{R}^k} $
-   \item \ascii{权重}: $ W \in {\mathbb{R}^{n \times k}} $   
-   \item \ascii{偏置}: $ b \in {\mathbb{R}^k} $   
-   \item \ascii{softmax函数}: $ 
+   \item \ascii{トレーニングサンプルセット}: $ S = \{ ({x^{(i)}},{y^{(i)}});i = 1,2,...,m\} $
+   \item \ascii{第$i$番目のトレーニングサンプル}: $ ({x^{(i)}},{y^{(i)}}) $
+   \item \ascii{サンプル入力}: $ x = ({x_1},{x_2},...,{x_n})^{T}  \in {\mathbb{R}^n} $
+   \item \ascii{サンプルラベル(one-hot)}: $ y = ({y_1},{y_2},...,{y_k})^{T} \in {\mathbb{R}^k} $
+   \item \ascii{重み}: $ W \in {\mathbb{R}^{n \times k}} $   
+   \item \ascii{バイアス}: $ b \in {\mathbb{R}^k} $   
+   \item \ascii{softmax関数}: $ 
 softmax {(z_i)} = \tfrac{{{e^{{z_i}}}}}{{\sum\limits_{j = 1}^k {{e^{{z_j}}}} }}  \quad i = 1,2,...,k
 $
  \end{itemize}
 
-\subsubsection{softmax函数}
+\subsubsection{softmax関数}
 
-如\refig{softmax}所示，模型先求取线性加权和$z$，然后求取$e^z$，最后再实施归一化操作。
+\refig{softmax}に示すように、モデルはまず線形加重和$z$を求め、次に$e^z$を求め、最後に正規化操作を実施します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/softmax.png}
-\caption{softmax函数}
+\caption{softmax関数}
  \label{fig:softmax}
 \end{figure}
 
-\subsubsection{权重与偏置}
+\subsubsection{重みとバイアス}
 
-权重$W$为一个$n \times k$的二维矩阵。
+重み$W$は$n \times k$の二次元行列です。
 
 \[
 W = \left( {{W_1},{W_2},...,{W_k}} \right) = \left( {\begin{array}{*{20}{c}}
@@ -162,21 +162,21 @@ W = \left( {{W_1},{W_2},...,{W_k}} \right) = \left( {\begin{array}{*{20}{c}}
 \end{array}} \right) \in {\mathbb{R}^{n \times k}}
 \]
 
-其中，$W_j$是一个长度为$n$的向量。
+ここで、$W_j$は長さ$n$のベクトルです。
 
 \[
 {W_j} = {\left( {{w_{1j}},{w_{2j}},...,{w_{nj}}} \right)^T} \in {\mathbb{R}^n}, j = 1,2,...,k \\
 \]
 
-而偏置$b$是一个长度为$k$的\ascii{\quo{one-hot}}向量。
+一方、バイアス$b$は長さ$k$の\ascii{\quo{one-hot}}ベクトルです。
 
 \[
 b = {({b_1},{b_2},...,{b_k})^T} \in {\mathbb{R}^k}
 \]
 
-\subsubsection{模型定义}
+\subsubsection{モデル定義}
 
-多分类问题的单层感知器模型，使用\ascii{softmax}激活函数，可以如此定义。
+多クラス分類問題のシングルレイヤーパーセプトロンモデルは、\ascii{softmax}活性化関数を使用して、以下のように定義できます。
 
 \[\begin{aligned}
   y =  & {h_{W,b}}(x) = softmax (z) = softmax ({W^T}x + b) \\ 
@@ -185,7 +185,7 @@ b = {({b_1},{b_2},...,{b_k})^T} \in {\mathbb{R}^k}
    =  & \frac{1}{{\sum\limits_{j = 1}^k {{e^{W_j^Tx + {b_j}}}} }}{\left( {{e^{W_1^Tx + {b_1}}},{e^{W_2^Tx + {b_2}}},...,{e^{W_k^Tx + {b_k}}}} \right)^T} \ 
 \end{aligned} \]
 
-其中，对于任意给定的样本$ (x, y) \in S $，$ z_i $表示$W_i^Tx+b_i$的线性加权和，而$y_i(i=1,2,...,k)$表示将其划归为类$i$的概率。
+ここで、任意の与えられたサンプル$ (x, y) \in S $に対して、$ z_i $は$W_i^Tx+b_i$の線形加重和を表し、$y_i(i=1,2,...,k)$はそれをクラス$i$に分類する確率を表します。
 
 \[\begin{gathered}
   P\left( {y = i|x;W,b} \right) = \frac{{{e^{W_i^Tx + b_i}}}}{{\sum\limits_{j = 1}^k {{e^{W_j^Tx + b_j}}} }} \hfill \\
@@ -193,22 +193,22 @@ b = {({b_1},{b_2},...,{b_k})^T} \in {\mathbb{R}^k}
 \end{gathered} \]
 
 
-\subsubsection{交叉熵函数}
+\subsubsection{クロスエントロピー関数}
 
-基于样本数据集$ S = \{ ({x^{(i)}},{y^{(i)}});i = 1,2,...,m\} $，交叉熵损失函数可以如此定义。
+サンプルデータセット$ S = \{ ({x^{(i)}},{y^{(i)}});i = 1,2,...,m\} $に基づいて、クロスエントロピー損失関数は以下のように定義できます。
 
 \[\begin{aligned}
   J(W,b) =  &  - \frac{1}{m}\sum\limits_{i = 1}^m {{y^{(i)}}\log \left( {{{\widehat y}^{(i)}}} \right)}  \\ 
    =  &  - \frac{1}{m}\sum\limits_{i = 1}^m {\sum\limits_{j = 1}^k {y_j^{(i)}\log \left( {\widehat y_j^{(i)}} \right)} }  \\
 \end{aligned} \]
 
-\ascii{softmax}多分类问题，就是求取最优解$(W^*,b^*)$，使得
+\ascii{softmax}多クラス分類問題は、最適解$(W^*,b^*)$を求めることです。これにより、
 
 \[W^*,b^* = \mathop {\arg \min }\limits_{W,b} J(W,b)\]
 
-\subsubsection{计算梯度}
+\subsubsection{勾配の計算}
 
-对于任意一个样本$ (x,y) \in S $，可以推导出$ J(W,b) $相对于$ W $与$ b $的梯度公式。
+任意のサンプル$ (x,y) \in S $に対して、$ J(W,b) $の$ W $と$ b $に関する勾配公式を導出できます。
 
 \[\begin{aligned}
   {\nabla _W}J\left( {W,b;x,y} \right) =  & \left( {\widehat y - y} \right)x \\ 
@@ -216,22 +216,22 @@ b = {({b_1},{b_2},...,{b_k})^T} \in {\mathbb{R}^k}
 \end{aligned} \]
 
 
-\subsubsection{参数更新}
+\subsubsection{パラメータの更新}
 
-对于训练样本数据$ S $，根据$W, b$的梯度公式，完成本次迭代的参数更新。
+トレーニングサンプルデータ$ S $に対して、$W, b$の勾配公式に基づいて、今回の反復でのパラメータ更新を完了します。
 
 \[\begin{aligned}
   W \leftarrow  & W - \alpha \frac{{\sum\limits_{i = 1}^m {{\nabla _W}J\left( {W,b;{x^{(i)}},{y^{(i)}}} \right)} }}{m} \\ 
   b \leftarrow  & b - \alpha \frac{{\sum\limits_{i = 1}^m {{\nabla _b}J\left( {W,b;{x^{(i)}},{y^{(i)}}} \right)} }}{m} \\ 
 \end{aligned} \]
 
-\subsection{定义模型}
+\subsection{モデルの定義}
 
-接下来，使用\tf{}完成该模型的搭建和训练。需要注意的是，理论上的公式与\tf{}具体实现存在微妙的差异。理论上，公式中的$x$常表示一个样本，但\tf{}中的\code{x}常表示一个\ascii{mini-batch}的样本数据集。因此，使用\tf{}设计网络模型时，需要特别关注各个张量大小的变化是否符合预期。
+次に、\tf{}を使用してこのモデルの構築とトレーニングを完了します。注意すべきは、理論上の公式と\tf{}の具体的な実装には微妙な違いがあることです。理論上では、公式の$x$は通常1つのサンプルを表しますが、\tf{}の\code{x}は通常1つの\ascii{mini-batch}のサンプルデータセットを表します。したがって、\tf{}を使用してネットワークモデルを設計する際は、各テンソルのサイズの変化が期待通りかどうかに特に注意する必要があります。
 
-\subsubsection{输入和标签}
+\subsubsection{入力とラベル}
 
-首先，使用\code{tf.placeholder}分别定义训练样本的输入和标签。
+まず、\code{tf.placeholder}を使用してトレーニングサンプルの入力とラベルを定義します。
 
 \begin{leftbar}
 \begin{python}
@@ -240,9 +240,9 @@ t = tf.placeholder(tf.float32, [None, 10])
 \end{python}
 \end{leftbar}
 
-\code{tf.placeholder}定义了一个占位的\ascii{OP}。\code{None}表示未确定的样本数目，此处表示\code{batch\_size}的大小；当\code{Session.run}时，将通过\code{feed\_dict}的字典提供一个\ascii{mini-batch}的样本数据集，从而自动推导出\code{tf.placeholder}的大小。
+\code{tf.placeholder}はプレースホルダーの\ascii{OP}を定義します。\code{None}は未確定のサンプル数を表し、ここでは\code{batch\_size}の大きさを表します。\code{Session.run}時に、\code{feed\_dict}辞書を通じて1つの\ascii{mini-batch}のサンプルデータセットを提供し、\code{tf.placeholder}のサイズを自動的に推論します。
 
-另外，每张图片使用$ 28 \times 28 \times 1 $的三维数据表示(灰度为\ascii{1})。为了简化问题，此处将输入的样本数据扁平化，将其变换为长度为\ascii{784}的一维向量。其中，\ascii{-1}表示\ascii{mini-batch}的样本数目，由运行时自动推演其大小。
+また、各画像は$ 28 \times 28 \times 1 $の3次元データ（グレースケールは\ascii{1}）で表現されます。問題を簡略化するために、ここでは入力サンプルデータをフラット化し、長さ\ascii{784}の1次元ベクトルに変換します。ここで、\ascii{-1}は\ascii{mini-batch}のサンプル数を表し、実行時に自動的にそのサイズを推論します。
 
 \begin{leftbar}
 \begin{python}
@@ -250,9 +250,9 @@ x = tf.reshape(x, [-1, 784])
 \end{python}
 \end{leftbar}
 
-\subsubsection{定义变量}
+\subsubsection{変数の定義}
 
-然后，使用\code{tf.Variable}定义模型参数。定义训练参数时，必须指定参数的初始化值；训练参数将根据初始值，自动推演数据的类型，及其大小。
+次に、\code{tf.Variable}を使用してモデルパラメータを定義します。トレーニングパラメータを定義する際は、パラメータの初期値を指定する必要があります。トレーニングパラメータは初期値に基づいて、データ型とそのサイズを自動的に推論します。
 
 \begin{leftbar}
 \begin{python}
@@ -261,7 +261,7 @@ b = tf.Variable(tf.zeros([10]))
 \end{python}
 \end{leftbar}
 
-此外，变量在使用之前，必须完成初始化。此处，\code{init\_op}将初始化所有全局的训练参数。
+さらに、変数を使用する前に、初期化を完了する必要があります。ここでは、\code{init\_op}がすべてのグローバルトレーニングパラメータを初期化します。
 
 \begin{leftbar}
 \begin{python}
@@ -269,9 +269,9 @@ init_op = tf.global_variables_initializer()
 \end{python}
 \end{leftbar}
 
-\subsubsection{模型定义}
+\subsubsection{モデルの定義}
 
-接下来，便可以很容易地得到多分类问题的单层感知器模型。
+次に、多クラス分類問題のシングルレイヤーパーセプトロンモデルを簡単に得ることができます。
 
 \begin{leftbar}
 \begin{python}
@@ -279,27 +279,27 @@ y = tf.nn.softmax(tf.matmul(x, w) + b)
 \end{python}
 \end{leftbar}
 
-如\refig{mnist-linear-sum}所示，首先计算\code{x}与\code{w}的矩阵乘法，让后将\code{b}广播(\ascii{broadcast})到矩阵的每一行相加，最终得到训练参数的线性加权和。
+\refig{mnist-linear-sum}に示すように、まず\code{x}と\code{w}の行列乗算を計算し、次に\code{b}を行列の各行にブロードキャスト（\ascii{broadcast}）して加算し、最終的にトレーニングパラメータの線形加重和を得ます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-linear-sum.png}
-\caption{线性加权和}
+\caption{線形加重和}
  \label{fig:mnist-linear-sum}
 \end{figure}
 
-如\refig{mnist-softmax}所示，\ascii{softmax}将逐行实施运算，最终，\code{y}的大小为\code{[100, 10]}。
+\refig{mnist-softmax}に示すように、\ascii{softmax}は行ごとに計算を実施し、最終的に\code{y}のサイズは\code{[100, 10]}になります。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-softmax.png}
-\caption{激活函数：softmax}
+\caption{活性化関数：softmax}
  \label{fig:mnist-softmax}
 \end{figure}
 
-\subsubsection{损失函数}
+\subsubsection{損失関数}
 
-对于多分类问题，可以使用交叉熵的损失函数。
+多クラス分類問題に対しては、クロスエントロピーの損失関数を使用できます。
 
 \begin{leftbar}
 \begin{python}
@@ -307,22 +307,22 @@ cross_entropy = -tf.reduce_sum(t * tf.log(y))
 \end{python}
 \end{leftbar}
 
-如\refig{mnist-cross-entropy}所示，\code{t}和\code{y}的大小都为\code{[100, 10]}；特殊地，\code{t}的每一行都是一个\quo{\ascii{one-hot}}向量。
+\refig{mnist-cross-entropy}に示すように、\code{t}と\code{y}のサイズはともに\code{[100, 10]}です。特に、\code{t}の各行は\quo{\ascii{one-hot}}ベクトルです。
 
-对\code{y}实施\code{tf.log}操作，也将得到一个大小为\code{[100, 10]}的矩阵。然后，\code{t}与\code{tf.log(y)}逐位相乘(并非矩阵相乘)，也将得到大小为\code{[100, 10]}的矩阵。最终，\code{tf.reduce\_sum}将矩阵中所有元素相加，得到一个标量(\ascii{scalar})值。
+\code{y}に対して\code{tf.log}操作を実施すると、サイズ\code{[100, 10]}の行列も得られます。次に、\code{t}と\code{tf.log(y)}を要素ごとに乗算（行列乗算ではない）すると、サイズ\code{[100, 10]}の行列も得られます。最後に、\code{tf.reduce\_sum}が行列内のすべての要素を加算し、スカラー（\ascii{scalar}）値を得ます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-cross-entropy.png}
-\caption{交叉熵损失函数}
+\caption{クロスエントロピー損失関数}
  \label{fig:mnist-cross-entropy}
 \end{figure}
 
 \subsubsection{精度}
 
-\code{tf.argmax(y,1)}将按第\ascii{1}个维度计算最大值的索引。既按照$ y_{100 \times 10} $的每一行，计算得到在每一行中最大值的的索引值。因此，\code{tf.argmax(y,1)}将得到大小为\code{[100, 1]}的矩阵，或大小为\ascii{100}的向量。同样地，\code{tf.argmax(t,1)}也是一个大小为\ascii{100}的向量。
+\code{tf.argmax(y,1)}は第\ascii{1}次元に沿って最大値のインデックスを計算します。つまり、$ y_{100 \times 10} $の各行について、その行の中で最大値のインデックス値を計算します。したがって、\code{tf.argmax(y,1)}はサイズ\code{[100, 1]}の行列、またはサイズ\ascii{100}のベクトルを得ます。同様に、\code{tf.argmax(t,1)}もサイズ\ascii{100}のベクトルです。
 
-然后，使用\code{tf.equal}将它们逐元素(\ascii{element-wise})进行相等性比较，得到大小为\ascii{100}的布尔向量。为了计算精度，先将布尔向量转别为数值向量，最终求取该数值向量的均值。
+次に、\code{tf.equal}を使用してこれらを要素ごと（\ascii{element-wise}）に等価性比較し、サイズ\ascii{100}のブールベクトルを得ます。精度を計算するために、まずブールベクトルを数値ベクトルに変換し、最終的にその数値ベクトルの平均を求めます。
 
 \begin{leftbar}
 \begin{python}
@@ -331,9 +331,9 @@ accuracy = tf.reduce_mean(tf.cast(is_correct, tf.float32))
 \end{python}
 \end{leftbar}
 
-\subsection{优化算法}
+\subsection{最適化アルゴリズム}
 
-接下来，使用梯度下降算法实现交叉熵损失函数的最小化。其中，\code{learning\_rate}表示学习速率，描述参数更新的快慢和步伐大小，是一个典型的超参。
+次に、勾配降下法アルゴリズムを使用してクロスエントロピー損失関数の最小化を実装します。ここで、\code{learning\_rate}は学習率を表し、パラメータ更新の速さとステップサイズを記述する典型的なハイパーパラメータです。
 
 \begin{leftbar}
 \begin{python}
@@ -342,22 +342,22 @@ train_step = optimizer.minimize(cross_entropy)
 \end{python}
 \end{leftbar}
 
-如\refig{mnist-gd}所示，可以将损失函数比作一座山，登山者试图寻找最佳的行动方案达到山谷。登山者站在某个山坡上环顾四周，决定沿梯度的反方向向下走一小步，直到达到局部最优。
+\refig{mnist-gd}に示すように、損失関数を山に例えることができます。登山者は谷底に到達するための最適な行動計画を見つけようとしています。登山者は特定の山腹に立って周囲を見回し、勾配の反対方向に小さな一歩を踏み出すことを決定し、局所的な最適点に到達するまでこれを繰り返します。
 
-当实施梯度下降更新算法时，初始点不同，获得的最小值也不同，因此梯度下降求得的只是局部最小值。另外，越接近最小值时，下降速度越慢。下降的步伐大小也非常重要，如果太小，则找到函数最小值的速度就很慢；如果太大，则可能会越过极值点。
+勾配降下法更新アルゴリズムを実施する際、初期点が異なれば得られる最小値も異なるため、勾配降下法で得られるのは局所的な最小値のみです。また、最小値に近づくほど、降下速度は遅くなります。降下のステップサイズも非常に重要で、小さすぎると関数の最小値を見つける速度が遅くなり、大きすぎると極値点を超えてしまう可能性があります。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-gd.jpeg}
-\caption{梯度下降算法}
+\caption{勾配降下法アルゴリズム}
  \label{fig:mnist-gd}
 \end{figure}
 
-\subsection{训练模型}
+\subsection{モデルのトレーニング}
 
-在此之前，\tf{}仅构造计算图，并没有启动计算图的执行。接下来，客户端创建一个会话，建立与本地或远端计算设备集的通道，启动计算图的执行过程。
+これまでの段階では、\tf{}は計算グラフを構築しただけで、計算グラフの実行は開始していません。次に、クライアントがセッションを作成し、ローカルまたはリモートの計算デバイス集合とのチャネルを確立し、計算グラフの実行プロセスを開始します。
 
-首先，完成训练参数的初始化。通过运行模型参数的初始化子图，并发地执行各个训练参数的初始化器，将初始值就地修改到相应的训练参数内。
+まず、トレーニングパラメータの初期化を完了します。モデルパラメータの初期化サブグラフを実行し、各トレーニングパラメータの初期化子を並行して実行し、初期値を対応するトレーニングパラメータにその場で修正します。
 
 \begin{leftbar}
 \begin{python}
@@ -366,7 +366,7 @@ with tf.Session() as sess:
 \end{python}
 \end{leftbar}
 
-然后，开始迭代地执行\code{train\_step}，完成模型的一次迭代训练。其中，每\ascii{100}次迭代，计算当前模型在训练数据集及测试数据集的精度和损失。
+次に、\code{train\_step}を繰り返し実行し始め、モデルの1回の反復トレーニングを完了します。ここで、100回の反復ごとに、現在のモデルのトレーニングデータセットおよびテストデータセットにおける精度と損失を計算します。
 
 \begin{leftbar}
 \begin{python}
@@ -383,52 +383,52 @@ with tf.Session() as sess:
 \end{python}
 \end{leftbar}
 
-据统计，经过\ascii{1000}次迭代，可得到大约\percent{92}的精度。
+統計によると、1000回の反復後、約\percent{92}の精度が得られます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-slp-accuracy.png}
-\caption{可视化：单层感知器，运行1000次step}
+\caption{可視化：シングルレイヤーパーセプトロン、1000回のステップ実行}
  \label{fig:mnist-slp-accuracy}
 \end{figure}
 
 \end{content}
 
-\section{多层感知器}
+\section{マルチレイヤーパーセプトロン}
 
 \begin{content}
 
-为了进一步提高精度，接下来尝试搭建\ascii{5}层的多层感知器模型。
+精度をさらに向上させるために、次は\ascii{5}層のマルチレイヤーパーセプトロンモデルの構築を試みます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-5-layer.png}
-\caption{5层感知器}
+\caption{5層パーセプトロン}
  \label{fig:mnist-5-layer}
 \end{figure}
 
-\subsection{理论基础}
+\subsection{理論的基礎}
 
-\subsubsection{符号定义}
+\subsubsection{記号の定義}
 
-为了形式化地描述多层感知器模型，此处定义了一些常用符号。
+マルチレイヤーパーセプトロンモデルを形式的に記述するために、ここでいくつかの一般的な記号を定義します。
 
 \begin{itemize}
-   \item \alert{$ {n_{\ell}} $}: 网络层数，其中第$0$层为输入层，第$n_{\ell}$层为输出层
-   \item \alert{$ {s_{\ell}} $}: 第$\ell$层的节点数，$ \ell = 0, 1, ..., n_{\ell} $
-   \item \alert{$ w_{ji}^{(\ell)} $}: 第$(\ell-1)$层节点$i$与第$\ell$层节点$j$之间的权重，$ \ell = 1, ..., n_{\ell} $
-   \item \alert{$ b_i^{(\ell)} $}: 第$\ell$层节点$i$的偏置项，$ \ell = 1, ..., n_{\ell} $
-   \item \alert{$ a_i^{(\ell)} $}: 第$\ell$层节点$i$的输出，$ \ell = 1, ..., n_{\ell}, x = a^{(0)}, y = a^{(n_{\ell})} $
-   \item \alert{$ z_i^{(\ell)} $}: 第$\ell$层节点$i$的权重和，$ \ell = 1, ..., n_{\ell} $
-   \item \alert{$ \delta _i^{(\ell)} $}: 第$\ell$层节点$i$的误差项，$ \ell = 1, ..., n_{\ell} $
-   \item \alert{$ S = \{ ({x^{(t)}},{y^{(t)}});t = 1,2,...,m\} $}: 样本空间
+   \item \alert{$ {n_{\ell}} $}: ネットワーク層数、ここで第$0$層は入力層、第$n_{\ell}$層は出力層
+   \item \alert{$ {s_{\ell}} $}: 第$\ell$層のノード数、$ \ell = 0, 1, ..., n_{\ell} $
+   \item \alert{$ w_{ji}^{(\ell)} $}: 第$(\ell-1)$層のノード$i$と第$\ell$層のノード$j$の間の重み、$ \ell = 1, ..., n_{\ell} $
+   \item \alert{$ b_i^{(\ell)} $}: 第$\ell$層のノード$i$のバイアス項、$ \ell = 1, ..., n_{\ell} $
+   \item \alert{$ a_i^{(\ell)} $}: 第$\ell$層のノード$i$の出力、$ \ell = 1, ..., n_{\ell}, x = a^{(0)}, y = a^{(n_{\ell})} $
+   \item \alert{$ z_i^{(\ell)} $}: 第$\ell$層のノード$i$の重み和、$ \ell = 1, ..., n_{\ell} $
+   \item \alert{$ \delta _i^{(\ell)} $}: 第$\ell$層のノード$i$の誤差項、$ \ell = 1, ..., n_{\ell} $
+   \item \alert{$ S = \{ ({x^{(t)}},{y^{(t)}});t = 1,2,...,m\} $}: サンプル空間
  \end{itemize}
 
-\subsubsection{前向传播}
+\subsubsection{順伝播}
 
-$z^{(\ell )}$表示$\ell$层的线性加权和，它由第$\ell - 1$层的输出$a^{(\ell  - 1)}$与第$\ell$层的权重矩阵$w^{(\ell )}$相乘，再加上第$\ell$层的偏置向量所得。
+$z^{(\ell )}$は$\ell$層の線形重み和を表し、第$\ell - 1$層の出力$a^{(\ell  - 1)}$と第$\ell$層の重み行列$w^{(\ell )}$の積に、第$\ell$層のバイアスベクトルを加えたものです。
 
-推而广之，第$\ell$层的输出，由激活函数$f({z^{(\ell )}})$所得。其中，$a^{(0)}} = x, y = {a^{({n_\ell })}}$。
+一般化すると、第$\ell$層の出力は、活性化関数$f({z^{(\ell )}})$によって得られます。ここで、$a^{(0)}} = x, y = {a^{({n_\ell })}}$です。
 
 \[\begin{gathered}
   {z^{(\ell )}} = {w^{(\ell )}}{a^{(\ell  - 1)}} + {b^{(\ell )}} \hfill \\
@@ -437,16 +437,16 @@ $z^{(\ell )}$表示$\ell$层的线性加权和，它由第$\ell - 1$层的输出
   y = {a^{({n_\ell })}} \hfill \\ 
 \end{gathered} \]
 
-\subsubsection{后向传播}
+\subsubsection{逆伝播}
 
-然后，反向计算各层的误差。其中，第$\ell$层的误差，由$\ell + 1$层的误差计算所得。特殊地，在输出层，预测值$a^{({n_\ell })}$与$y$之间的误差，可以直接计算得到。
+次に、各層の誤差を逆算します。ここで、第$\ell$層の誤差は、$\ell + 1$層の誤差から計算されます。特に、出力層では、予測値$a^{({n_\ell })}$と$y$の間の誤差を直接計算できます。
 
 \[{\delta ^{(\ell)}} = \left\{ \begin{gathered}
   {({w^{(\ell + 1)}})^T}{\delta ^{(\ell + 1)}} \circ f\,'({z^{(\ell)}});{\text{  }}\ell \ne {n_\ell} \hfill \\
   ({a^{(\ell)}} - y) \circ f\,'({z^{(\ell)}}); {\text{  }}\ell = {n_\ell} \hfill \\ 
 \end{gathered}  \right.\]
 
-损失函数$J(w,b)$相对于各层的权重矩阵与偏置向量的梯度便可以计算得到。
+損失関数$J(w,b)$の各層の重み行列とバイアスベクトルに関する勾配は以下のように計算できます。
 
 \[\begin{gathered}
   {\nabla _{{w^{(\ell )}}}}J(w,b;x,y) = {\delta ^{(\ell )}}{\left( {{a^{(\ell  - 1)}}} \right)^T} \hfill \\
@@ -454,11 +454,11 @@ $z^{(\ell )}$表示$\ell$层的线性加权和，它由第$\ell - 1$层的输出
   \ell  = 1,2,...,{n_\ell } \hfill \\ 
 \end{gathered} \]
 
-一般地，在实际系统实现中，下游层传递梯度给上层，上层直接完成梯度的计算。
+一般的に、実際のシステム実装では、下流層が勾配を上層に伝達し、上層が直接勾配の計算を完了します。
 
-\subsubsection{参数更新}
+\subsubsection{パラメータの更新}
 
-对于给定样本数据集$ S = \{ ({x^{(t)}},{y^{(t)}});t = 1,2,...,m\} $，根据梯度反传公式，可以计算得到参数更新的变化量。
+与えられたサンプルデータセット$ S = \{ ({x^{(t)}},{y^{(t)}});t = 1,2,...,m\} $に対して、勾配逆伝播公式に基づいて、パラメータ更新の変化量を計算できます。
 
 \[\begin{aligned}
   \Delta {w^{(\ell )}} \leftarrow \Delta {w^{(\ell )}} + {\nabla _{{w^{(\ell )}}}}J\left( {w,b;{x^{(t)}},{y^{(t)}}} \right) \\ 
@@ -466,7 +466,7 @@ $z^{(\ell )}$表示$\ell$层的线性加权和，它由第$\ell - 1$层的输出
   t = 1,2,...,m;\ell  = 1,2,...,{n_\ell } \\ 
 \end{aligned} \]
 
-最后，执行梯度下降算法，完成训练参数一个迭代的更新。
+最後に、勾配降下法アルゴリズムを実行し、トレーニングパラメータの1回の反復更新を完了します。
 
 \[\begin{aligned}
   {w^{(\ell )}} \leftarrow  & {w^{(\ell )}} - \alpha \left( {\frac{{\Delta {w^{(\ell )}}}}{m}} \right) \\ 
@@ -474,9 +474,9 @@ $z^{(\ell )}$表示$\ell$层的线性加权和，它由第$\ell - 1$层的输出
   \ell  = & 1,2,...,{n_\ell }  \\
 \end{aligned} \]
 
-\subsection{定义模型}
+\subsection{モデルの定義}
 
-相对于上一节中尝试的单层感知器，此处定义每一个隐式层的权重时，并没有使用常量定义变量的初始值，而使用满足某种数据分布特征的随机值。
+前節で試みたシングルレイヤーパーセプトロンと比較して、ここでは各隠れ層の重みを定義する際、定数を使用して変数の初期値を定義するのではなく、特定のデータ分布特性を満たすランダム値を使用しています。
 
 \begin{leftbar}
 \begin{python}
@@ -502,7 +502,7 @@ b5 = tf.Variable(tf.zeros([10]))
 \end{python}
 \end{leftbar}
 
-在定义每一个隐式层时，采用\ascii{sigmoid}的激活函数。而在最后的输出层，采用\ascii{softmax}的激活函数。
+各隠れ層を定義する際、\ascii{sigmoid}活性化関数を採用しています。最後の出力層では、\ascii{softmax}活性化関数を採用しています。
 
 \begin{leftbar}
 \begin{python}
@@ -514,22 +514,22 @@ y  = tf.nn.softmax(tf.matmul(y4, w5) + b5)
 \end{python}
 \end{leftbar}
 
-经过迭代的模型训练，可以得到大约\percent{97}左右的精度。但是，网络随着层次的增加，模型变得越来越难以收敛。接下来，尝试一些常见的调优技术，改善网络的性能。
+反復的なモデルトレーニングを経て、約\percent{97}の精度を得ることができます。しかし、ネットワークの層が増えるにつれて、モデルの収束が難しくなります。次に、いくつかの一般的な最適化技術を試み、ネットワークのパフォーマンスを改善します。
 
-\subsection{优化技术}
+\subsection{最適化技術}
 
-\subsubsection{激活函数：ReLU}
+\subsubsection{活性化関数：ReLU}
 
-在深度模型中，不适合使用\ascii{sigmoid}激活函数。它将把所有的值都挤到了\ascii{0}到\ascii{1}之间；随着网络层次的增加，引发梯度消失的问题。
+深層モデルでは、\ascii{sigmoid}活性化関数の使用は適していません。これはすべての値を\ascii{0}から\ascii{1}の間に押し込めてしまいます。ネットワークの層が増えるにつれて、勾配消失問題を引き起こします。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-relu.png}
-\caption{ReLU激活函数}
+\caption{ReLU活性化関数}
  \label{fig:mnist-relu}
 \end{figure}
 
-可以使用\ascii{ReLU(Rectified Linear Unit)}替代\ascii{sigmoid}，不仅避免了\ascii{sigmoid}导致的一些问题，而且能够加快初始的收敛速度。
+\ascii{sigmoid}の代わりに\ascii{ReLU(Rectified Linear Unit)}を使用することで、\ascii{sigmoid}によって引き起こされるいくつかの問題を避けるだけでなく、初期の収束速度を加速することができます。
 
 \begin{leftbar}
 \begin{python}
@@ -541,7 +541,7 @@ y  = tf.nn.softmax(tf.matmul(y4, w5) + b5)
 \end{python}
 \end{leftbar}
 
-另外，如果使用\ascii{ReLU}激活函数，偏置向量常常初始化为小的正值，使得神经元在一开始就会工作在\ascii{ReLU}的非零区域内。
+また、\ascii{ReLU}活性化関数を使用する場合、バイアスベクトルは通常小さな正の値で初期化され、ニューロンが最初から\ascii{ReLU}の非ゼロ領域で動作するようにします。
 
 \begin{leftbar}
 \begin{python}
@@ -567,18 +567,18 @@ b5 = tf.Variable(tf.ones([L])/10)
 \end{python}
 \end{leftbar}
 
-如\refig{mnist-sigmoid-to-relu}所示，前\ascii{300}次迭代，使用\ascii{ReLU}相对于使用\ascii{sigmoid}，其初始收敛速度提升显著。
+\refig{mnist-sigmoid-to-relu}に示すように、最初の\ascii{300}回の反復において、\ascii{sigmoid}を使用する場合と比較して、\ascii{ReLU}を使用すると初期収束速度が顕著に向上しています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-sigmoid-to-relu.png}
-\caption{应用ReLU激活函数：初始收敛速度提升显著}
+\caption{ReLU活性化関数の適用：初期収束速度が顕著に向上}
  \label{fig:mnist-sigmoid-to-relu}
 \end{figure}
 
-\subsubsection{不定值}
+\subsubsection{不定値}
 
-为了得到稳定的数值计算结果，避免出现精度突降为\ascii{0}的情况发生。追溯实现代码，可能引入\code{log(0)}计算得到\code{NaN}不定值的问题。可以使用\code{softmax\_cross\_entropy\_with\_logits}计算交叉熵损失，并将线性加权和作为其输入(常称为\ascii{logits})。
+安定した数値計算結果を得るため、精度が突然\ascii{0}になるような状況を避けます。実装コードを追跡すると、\code{log(0)}の計算により\code{NaN}不定値の問題が発生する可能性があります。クロスエントロピー損失の計算には\code{softmax\_cross\_entropy\_with\_logits}を使用し、線形重み和をその入力（通常\ascii{logits}と呼ばれる）として使用することができます。
 
 \begin{leftbar}
 \begin{python}
@@ -590,18 +590,18 @@ cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
 \end{python}
 \end{leftbar}
 
-\subsubsection{学习速率衰减}
+\subsubsection{学習率減衰}
 
-随着网路层次的增加，及其应用相关优化技术后，模型的精度能够能得到\percent{98}左右，但很难得到一个稳定的精度。如\refig{mnist-lr-too-larger}所示，精度和损失抖动相当明显。
+ネットワークの層が増え、関連する最適化技術を適用した後、モデルの精度は約\percent{98}程度に達することができますが、安定した精度を得ることは難しいです。\refig{mnist-lr-too-larger}に示すように、精度と損失の変動が非常に顕著です。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-lr-too-larger.png}
-\caption{噪声抖动：学习速率过大}
+\caption{ノイズ変動：学習率が大きすぎる}
  \label{fig:mnist-lr-too-larger}
 \end{figure}
 
-可以采用更好的优化算法，例如\code{AdamOptimizer}。随着迭代过程的次数，学习速率将指数级衰减，在模型训练后期可以得到一个更稳定的精度和损失曲线。
+より良い最適化アルゴリズム、例えば\code{AdamOptimizer}を採用することができます。反復回数が増えるにつれて、学習率は指数関数的に減衰し、モデルトレーニングの後期でより安定した精度と損失曲線を得ることができます。
 
 \begin{leftbar}
 \begin{python}
@@ -610,7 +610,7 @@ train_step = tf.train.AdamOptimizer(lr).minimize(cross_entropy)
 \end{python}
 \end{leftbar}
 
-在每个迭代训练过程中，根据当前\code{step}的值，实时计算当前迭代的学习速率\code{lr}，然后通过\code{feed\_dict}传递给\code{Session.run}执行。其中，学习速率衰减方程如下代码所示，随着迭代次数的增加，学习速率指数衰减。
+各反復トレーニングプロセスで、現在の\code{step}値に基づいて、現在の反復の学習率\code{lr}をリアルタイムで計算し、\code{feed\_dict}を通じて\code{Session.run}に渡して実行します。ここで、学習率減衰方程式は以下のコードに示すように、反復回数が増えるにつれて学習率が指数関数的に減衰します。
 
 \begin{leftbar}
 \begin{python}
@@ -626,36 +626,36 @@ with tf.Session() as sess:
 \end{python}
 \end{leftbar}
 
-如\refig{mnist-apply-learning-rate-decay}所示，应用学习速率衰减方法后，可以得到一个更稳定的精度和损失曲线。
+\refig{mnist-apply-learning-rate-decay}に示すように、学習率減衰方法を適用した後、より安定した精度と損失曲線を得ることができます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-apply-learning-rate-decay.png}
-\caption{应用Adam优化算法后，精度和损失趋于稳定}
+\caption{Adam最適化アルゴリズムを適用後、精度と損失が安定化}
  \label{fig:mnist-apply-learning-rate-decay}
 \end{figure}
 
-\subsubsection{应用Dropout}
+\subsubsection{Dropoutの適用}
 
-但是，损失曲线在训练集与测试集上相分离，出现明显的过拟合现象。即模型在训练数据集上表现良好，但在测试数据集上出现反弹，模型缺乏足够的泛化能力。
+しかし、損失曲線がトレーニングセットとテストセットで分離し、明らかな過学習現象が発生しています。つまり、モデルはトレーニングデータセットでは良好な性能を示しますが、テストデータセットでは反発が起こり、モデルに十分な汎化能力がありません。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-overfitting.png}
-\caption{过拟合}
+\caption{過学習}
  \label{fig:mnist-overfitting}
 \end{figure}
 
-如\refig{mnist-dropout}所示，在训练时对隐藏层的输出实施\ascii{dropout}操作，以\code{1 - pkeep}的概率随机丢弃神经元的输出，并在反向传播梯度时不再更新相应的权重。而在推理时恢复所有神经元的输出，间接改善了网络的泛化能力。
+\refig{mnist-dropout}に示すように、トレーニング時に隠れ層の出力に\ascii{dropout}操作を実施し、\code{1 - pkeep}の確率でニューロンの出力をランダムに削除し、逆伝播時にそれらの重みを更新しません。一方、推論時にはすべてのニューロンの出力を復元し、間接的にネットワークの汎化能力を改善します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-dropout.png}
-\caption{Dropout方法}
+\caption{Dropout手法}
  \label{fig:mnist-dropout}
 \end{figure}
 
-使用\tf{}实现\ascii{dropout}操作时，先定义一个超级参数\code{pkeep}，表示隐藏层的神经元以概率\code{pkeep}随机保留，以概率\code{1 - pkeep}随机丢弃。
+\tf{}を使用して\ascii{dropout}操作を実装する際、まずハイパーパラメータ\code{pkeep}を定義します。これは隠れ層のニューロンが確率\code{pkeep}でランダムに保持され、確率\code{1 - pkeep}でランダムに削除されることを表します。
 
 \begin{leftbar}
 \begin{python}
@@ -678,7 +678,7 @@ y = tf.nn.softmax(Ylogits)
 \end{python}
 \end{leftbar}
 
-在训练时，置超参\code{pkeep}的值小于\ascii{1}；而在推理时，置超参\code{pkeep}的值为\ascii{1}。
+トレーニング時には、ハイパーパラメータ\code{pkeep}の値を1未満に設定します。一方、推論時には、ハイパーパラメータ\code{pkeep}の値を1に設定します。
 
 \begin{leftbar}
 \begin{python}
@@ -696,161 +696,161 @@ with tf.Session() as sess:
 \end{python}
 \end{leftbar}
 
-在每一隐藏层实施\ascii{dropout}操作之后，训练集与测试集的损失曲线再次相交。但是，精度和损失曲线相比又出现小幅的抖动，而且训练集与测试集的损失曲线相重合的程度不是很理想，过拟合问题依然很突出。
+各隠れ層に\ascii{dropout}操作を適用した後、トレーニングセットとテストセットの損失曲線が再び交差します。しかし、精度と損失曲線は小幅の変動を示し、トレーニングセットとテストセットの損失曲線の重なり具合は理想的ではなく、過学習問題は依然として顕著です。
 
-也就是说，过拟合问题存在其他更深刻的原因。例如，将$ 28 \times 28 $的图片实施扁平化操作，将其变换为一个长度为\ascii{784}的一维向量，这将完全丢失了像素的空间排列信息。
+つまり、過学習問題にはより深刻な他の原因が存在します。例えば、$ 28 \times 28 $の画像をフラット化操作して長さ\ascii{784}の一次元ベクトルに変換することで、ピクセルの空間配置情報が完全に失われてしまいます。
 
-接下来，通过尝试构造卷积神经网络，从原图像中提取特征，从而保留了像素的空间排列信息，进而提升网络的性能。
+次に、畳み込みニューラルネットワークを構築することで、元の画像から特徴を抽出し、ピクセルの空間配置情報を保持し、ネットワークのパフォーマンスを向上させます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-apply-dropout-result.png}
-\caption{实施Dropout后，训练集与测试集的损失曲线再次重合}
+\caption{Dropout適用後、トレーニングセットとテストセットの損失曲線が再び重なる}
  \label{fig:mnist-apply-dropout-result}
 \end{figure}
 
 \end{content}
 
-\section{卷积网络}
+\section{畳み込みネットワーク}
 
 \begin{content}
 
-\subsection{特征与优势}
+\subsection{特徴と利点}
 
-随着网络层次增加，全连接网络的梯度消失的问题将越发突出，收敛速度变得越来越慢。相对于全连接网络，卷积网络具有\ascii{3}个主要特征，它减少了网络参数的数量，提升网络的泛化能力。
+ネットワークの層が増えるにつれて、全結合ネットワークの勾配消失問題はますます顕著になり、収束速度が遅くなります。全結合ネットワークと比較して、畳み込みネットワークには3つの主な特徴があり、これによりネットワークパラメータの数が減少し、ネットワークの汎化能力が向上します。
 
-\subsubsection{局部连接}
+\subsubsection{局所接続}
 
-相对于全连接网络，卷积网络实现了局部连接，即每个神经元并不与上一层的神经元都存在连接。如\refig{mnist-conv-local-conn}左侧所示，假如存在一张$ 1000 \times 1000 $像素的图像，及其$ 10^6 $个隐藏层的神经元。在全连接网络里，将拥有$ 10^3 \times 10^3 \times 10^6 = 10^{12} $个训练参数。
+全結合ネットワークと比較して、畳み込みネットワークは局所接続を実現しています。つまり、各ニューロンは前の層のすべてのニューロンとは接続していません。\refig{mnist-conv-local-conn}の左側に示すように、$ 1000 \times 1000 $ピクセルの画像と$ 10^6 $個の隠れ層ニューロンがあると仮定します。全結合ネットワークでは、$ 10^3 \times 10^3 \times 10^6 = 10^{12} $個のトレーニングパラメータを持つことになります。
 
-事实上，每个神经元没有必要与上一层神经元都存在连接。如\refig{mnist-conv-local-conn}右侧所示，假如每个隐藏层的神经元仅与上一层$ 10 \times 10 $的局部图像存在连接，$ 10^6 $个隐藏层的神经元则需要$ 10^6 \times 10^2 = 10^8$个网络连接，相比减少了\ascii{4}个数量级。
+実際には、各ニューロンが前の層のすべてのニューロンと接続する必要はありません。\refig{mnist-conv-local-conn}の右側に示すように、各隠れ層のニューロンが前の層の$ 10 \times 10 $の局所画像領域とのみ接続していると仮定すると、$ 10^6 $個の隠れ層ニューロンには$ 10^6 \times 10^2 = 10^8$個のネットワーク接続が必要となり、4桁のオーダーで減少します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/mnist-conv-local-conn.png}
-\caption{局部连接}
+\caption{局所接続}
  \label{fig:mnist-conv-local-conn}
 \end{figure}
 
-\subsubsection{权值共享}
+\subsubsection{重み共有}
 
-为了进一步减少网络连接，卷积网络还实现了权重共享；即每一组连接共享相同的权重，而不是每个连接存在不同的权重。如\refig{mnist-conv-local-conn-2}右侧所示，每个隐藏层的神经元仅与$ 10 \times 10 $的局部图像存在连接，且共享$ 10 \times 10 $的权重矩阵，与隐藏层的神经元的数目无关。相对于如\refig{mnist-conv-local-conn-2}左侧的局部连接网络，需要$10^8$个参数，卷积层仅需$10^2$个参数。
+ネットワーク接続をさらに減らすために、畳み込みネットワークは重み共有も実装しています。つまり、各接続グループが同じ重みを共有し、各接続が異なる重みを持つのではありません。\refig{mnist-conv-local-conn-2}の右側に示すように、各隠れ層のニューロンは$ 10 \times 10 $の局所画像領域とのみ接続し、$ 10 \times 10 $の重み行列を共有しており、隠れ層のニューロンの数に関係ありません。\refig{mnist-conv-local-conn-2}の左側に示す局所接続ネットワークと比較すると、$10^8$個のパラメータが必要なところを、畳み込み層では$10^2$個のパラメータしか必要としません。
 
-如\refig{mnist-conv-local-conn-2}右侧所示，为了提取不同特征，例如不同边缘的图像特征，可以使用多个过滤器。例如，存在\ascii{100}个过滤器，则需要$10^4$个参数。
+\refig{mnist-conv-local-conn-2}の右側に示すように、異なる特徴、例えば異なるエッジの画像特徴を抽出するために、複数のフィルターを使用できます。例えば、100個のフィルターがある場合、$10^4$個のパラメータが必要になります。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/mnist-conv-local-conn-2.png}
-\caption{权值共享，多个过滤器}
+\caption{重み共有、複数のフィルター}
  \label{fig:mnist-conv-local-conn-2}
 \end{figure}
 
-\subsubsection{下采样}
+\subsubsection{ダウンサンプリング}
 
-如\refig{mnist-subsample}所示，可选地实施下采样，进一步减少网络的参数，提升模型的鲁棒性。
+\refig{mnist-subsample}に示すように、オプションでダウンサンプリングを実施し、ネットワークのパラメータをさらに減少させ、モデルの堅牢性を向上させることができます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/mnist-subsample.png}
-\caption{下采样}
+\caption{ダウンサンプリング}
  \label{fig:mnist-subsample}
 \end{figure}
 
-\subsection{卷积运算}
+\subsection{畳み込み演算}
 
-卷积运算是一个计算密集型的\ascii{OP}。如\refig{mnist-conv2d-gif}所示，存在一个权重向量\code{w[3,3,3,2]}，其中输入通道数为\ascii{3}，输出通道数为\ascii{2}，卷积核大小为$3 \times 3$。
+畳み込み演算は計算集約型の\ascii{OP}です。\refig{mnist-conv2d-gif}に示すように、重みベクトル\code{w[3,3,3,2]}があり、入力チャネル数が3、出力チャネル数が2、畳み込みカーネルサイズが$3 \times 3$です。
 
-显而易见，输入图像的通道数，等价于卷积核的深度；卷积核的数目，等于\ascii{Feature Map}的输出通道数。另外，为了采集图像的边缘特征，在原图像外围补了(\ascii{padding})一圈零值。每次卷积计算，移动的步长(\ascii{stride})为\ascii{2}。因此，最终输出的\ascii{Feature Map}大小为$3 \times 3$。
+明らかに、入力画像のチャネル数は畳み込みカーネルの深さと等価であり、畳み込みカーネルの数は\ascii{Feature Map}の出力チャネル数と等しいです。また、画像のエッジ特徴を捉えるために、元の画像の周囲にゼロ値のパディング（\ascii{padding}）が追加されています。各畳み込み計算では、移動のステップ（\ascii{stride}）は2です。したがって、最終的な出力\ascii{Feature Map}のサイズは$3 \times 3$になります。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/mnist-conv2d-gif.png}
-\caption{卷积运算}
+\caption{畳み込み演算}
  \label{fig:mnist-conv2d-gif}
 \end{figure}
 
-\subsubsection{例子}
+\subsubsection{例}
 
-假如存在一个$32 \times 32 \times 3$的图片，卷积核大小为$5 \times 5 \times 3$。其中，卷积核的深度等于图片的输入通道数。如\refig{mnist-conv-1dot}所示，卷积核与图片中大小为$5 \times 5 \times 3$的块实施点积运算，得到一个值。
+$32 \times 32 \times 3$の画像があり、畳み込みカーネルのサイズが$5 \times 5 \times 3$だとします。ここで、畳み込みカーネルの深さは画像の入力チャネル数と等しいです。\refig{mnist-conv-1dot}に示すように、畳み込みカーネルは画像の$5 \times 5 \times 3$のブロックと内積演算を行い、1つの値を得ます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/convolutional-layer-2.png}
-\caption{卷积运算：卷积核与图片块的点积运算}
+\caption{畳み込み演算：畳み込みカーネルと画像ブロックの内積演算}
  \label{fig:mnist-conv-1dot}
 \end{figure}
 
-如\refig{mnist-conv-ndot}所示，卷积核遍历整个图片空间，最终得到一个大小为$28 \times 28 \times 1$的\ascii{Feature Map}。
+\refig{mnist-conv-ndot}に示すように、畳み込みカーネルは画像空間全体を走査し、最終的に$28 \times 28 \times 1$のサイズの\ascii{Feature Map}を得ます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/convolutional-layer-3.png}
-\caption{卷积运算：卷积核遍历图片，步长为1}
+\caption{畳み込み演算：畳み込みカーネルが画像を走査、ストライドは1}
  \label{fig:mnist-conv-ndot}
 \end{figure}
 
-如\refig{mnist-conv-multi-filters}所示，如果存在多个卷积核，则得到多个\ascii{Feature Map}。
+\refig{mnist-conv-multi-filters}に示すように、複数の畳み込みカーネルがある場合、複数の\ascii{Feature Map}が得られます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/convolutional-layer-4.png}
-\caption{卷积运算：多个卷积核}
+\caption{畳み込み演算：複数の畳み込みカーネル}
  \label{fig:mnist-conv-multi-filters}
 \end{figure}
 
-\subsection{公式推导}
+\subsection{公式の導出}
 
-\subsubsection{前向传播}
+\subsubsection{順伝播}
 
-$Z^{(\ell )}$表示$\ell$层的线性加权和，它由第$\ell - 1$层的输出$A^{(\ell  - 1)}$与第$\ell$层的权重矩阵$W^{(\ell )}$卷积，再加上第$\ell$层的偏置向量所得。
+$Z^{(\ell )}$は$\ell$層の線形重み和を表し、第$\ell - 1$層の出力$A^{(\ell  - 1)}$と第$\ell$層の重み行列$W^{(\ell )}$の畳み込み、そして第$\ell$層のバイアスベクトルを加えたものです。
 
-推而广之，第$\ell$层的输出，由激活函数$f({Z^{(\ell )}})$所得。其中，$A^{(0)}} = x, y = {A^{({n_\ell })}}$。
+一般化すると、第$\ell$層の出力は、活性化関数$f({Z^{(\ell )}})$によって得られます。ここで、$A^{(0)}} = x, y = {A^{({n_\ell })}}$です。
 
 \[\begin{gathered}
   {Z^{(\ell )}} = {A^{(\ell  - 1)}} * {W^{(\ell )}} + {b^{(\ell )}} \hfill \\
   {A^{(\ell )}} = f\left( {{Z^{(\ell )}}} \right) \hfill \\ 
 \end{gathered} \]
 
-\subsubsection{后向传播}
+\subsubsection{逆伝播}
 
-然后，反向计算各层的误差。其中，第$\ell$层的误差，由$\ell + 1$层的误差计算所得。相对于全连接网络，此处运用的是卷积运算，并非矩阵乘法运算。
+次に、各層の誤差を逆算します。ここで、第$\ell$層の誤差は、$\ell + 1$層の誤差から計算されます。全結合ネットワークと比較して、ここでは行列乗算ではなく畳み込み演算を使用しています。
 
 \[
 {\delta ^{(\ell )}} = {\delta ^{(\ell  + 1)}} * {W^{(\ell  + 1)}} \circ f\,'\left( {{z^{(\ell )}}} \right)
 \]
 
-损失函数$J(w,b)$相对于各层的权重矩阵与偏置向量的梯度便可以计算得到。
+損失関数$J(w,b)$の各層の重み行列とバイアスベクトルに関する勾配は以下のように計算できます。
 
 \[\begin{aligned}
   {\nabla _{{W^{(\ell )}}}}J(W,b) =  & {A^{(\ell  - 1)}} * {\delta ^{(\ell )}} \\ 
   {\nabla _{{b^{(\ell )}}}}J(W,b) =  & {\delta ^{(\ell )}} \\ 
 \end{aligned} \]
 
-\subsection{实现卷积网络}
+\subsection{畳み込みネットワークの実装}
 
-实现卷积网络时，首先需要定义每层过滤器的权重矩阵，用于提取图像的特征。权重矩阵在图像里表现的像一个从原始图像矩阵中提取特定信息的过滤器。一个权重矩阵可能用来提取图像边缘信息，一个权重矩阵可能是用来提取一个特定颜色，另一个权重矩阵可能对不需要的噪声进行模糊化。
+畳み込みネットワークを実装する際、まず各層のフィルターの重み行列を定義する必要があります。これは画像の特徴を抽出するために使用されます。重み行列は画像内で、元の画像行列から特定の情報を抽出するフィルターのように機能します。1つの重み行列は画像のエッジ情報を抽出し、別の重み行列は特定の色を抽出し、また別の重み行列は不要なノイズをぼかす可能性があります。
 
-当存在多个卷积层时，初始层往往提取较多的一般特征；随着网络结构变得更深，权值矩阵提取的特征越来越复杂，并且越来越适用于眼前的具体问题。
+複数の畳み込み層がある場合、初期層は一般的により多くの一般的な特徴を抽出します。ネットワーク構造が深くなるにつれて、重み行列が抽出する特徴はますます複雑になり、目前の具体的な問題により適したものになります。
 
-一般地，过滤器常使用一个\ascii{4}维的张量表示，前两维表示过滤器的大小，第三维表示输入的通道数，第四维表示输出的通道数。如\refig{mnist-filter}所示。
+一般的に、フィルターは4次元のテンソルで表現されます。最初の2次元はフィルターのサイズを表し、3次元目は入力チャネル数を表し、4次元目は出力チャネル数を表します。\refig{mnist-filter}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.4\textwidth]{figures/mnist-filter.png}
-\caption{卷积层的过滤器}
+\caption{畳み込み層のフィルター}
  \label{fig:mnist-filter}
 \end{figure}
 
-如\refig{mnist-conv2d-1}所示，构造了\ascii{3}个卷积层和\ascii{2}个全连接层。其中，中间隐藏层使用\ascii{ReLU}的激活函数，最后的输出层采用\ascii{softmax}的激活函数。
+\refig{mnist-conv2d-1}に示すように、3つの畳み込み層と2つの全結合層を構築しました。ここで、中間の隠れ層では\ascii{ReLU}活性化関数を使用し、最後の出力層では\ascii{softmax}活性化関数を採用しています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/mnist-conv2d-1.png}
-\caption{实现卷积神经网络}
+\caption{畳み込みニューラルネットワークの実装}
  \label{fig:mnist-conv2d-1}
 \end{figure}
 
-使用\tf{}实现卷积网络，如下代码所示。
+\tf{}を使用して畳み込みネットワークを実装する方法は以下のコードに示すとおりです。
 
 \begin{leftbar}
 \begin{python}
@@ -889,29 +889,29 @@ y = tf.nn.softmax(logits)
 \end{python}
 \end{leftbar}
 
-如\refig{mnist-conv2d-1-result}所示，经过$10^4$次训练，可以得到大约\percent{98.9}的准确率。
+\refig{mnist-conv2d-1-result}に示すように、$10^4$回のトレーニングを経て、約\percent{98.9}の精度を得ることができます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/mnist-conv2d-1-result.png}
-\caption{实现卷积网络：可以得到\percent{98.9}的准确率}
+\caption{畳み込みネットワークの実装：\percent{98.9}の精度を達成}
  \label{fig:mnist-conv2d-1-result}
 \end{figure}
 
-\subsection{增强卷积网络}
+\subsection{畳み込みネットワークの強化}
 
-如\refig{mnist-conv2d-2}所示，保留之前的网络层次结构，构造了\ascii{3}个卷积层和\ascii{2}个全连接层。其中，中间隐藏层使用\ascii{ReLU}的激活函数，最后的输出层采用\ascii{softmax}的激活函数。
+\refig{mnist-conv2d-2}に示すように、以前のネットワーク層構造を維持し、3つの畳み込み層と2つの全結合層を構築しました。ここで、中間の隠れ層では\ascii{ReLU}活性化関数を使用し、最後の出力層では\ascii{softmax}活性化関数を採用しています。
 
-但是，相对于之前的卷积网络，使用了更多的通道提取更多的特征。同时，在全连接的隐藏层中实施\ascii{dropout}操作，增强网络的泛化能力。
+しかし、以前の畳み込みネットワークと比較して、より多くのチャネルを使用してより多くの特徴を抽出しています。同時に、全結合の隠れ層で\ascii{dropout}操作を実施し、ネットワークの汎化能力を強化しています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/mnist-conv2d-2.png}
-\caption{改善卷积神经网络}
+\caption{畳み込みニューラルネットワークの改善}
  \label{fig:mnist-conv2d-2}
 \end{figure}
 
-使用\tf{}实现更大的卷积网络，如下代码所示。
+\tf{}を使用してより大きな畳み込みネットワークを実装する方法は以下のコードに示すとおりです。
 
 \begin{leftbar}
 \begin{python}
@@ -951,21 +951,22 @@ y = tf.nn.softmax(logits)
 \end{python}
 \end{leftbar}
 
-如\refig{mnist-conv2d-2-result}所示，经过$10^4$次训练，可以得到大约\percent{99.3}的准确率。
+\refig{mnist-conv2d-2-result}に示すように、$10^4$回のトレーニングを経て、約\percent{99.3}の精度を得ることができます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/mnist-conv2d-2-result.png}
-\caption{增强卷积网络：可以得到\percent{99.3}的准确率}
+\caption{強化された畳み込みネットワーク：
+\percent{99.3}の精度を達成}
  \label{fig:mnist-conv2d-2-result}
 \end{figure}
 
-同时，相对于之前实现的卷积网络，过拟合问题得到了明显地改善，如\refig{mnist-conv2d-3-result}所示。
+同時に、以前に実装した畳み込みネットワークと比較して、過学習問題が明らかに改善されました。\refig{mnist-conv2d-3-result}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/mnist-conv2d-3-result.png}
-\caption{增强卷积网络：过拟合问题明显改善}
+\caption{強化された畳み込みネットワーク：過学習問題が明らかに改善}
  \label{fig:mnist-conv2d-3-result}
 \end{figure}
 

@@ -3,84 +3,84 @@
 \qauthor{\ascii{- Martin Flower}}
 \end{savequote}
 
-\chapter{本地执行} 
+\chapter{ローカル実行} 
 \label{ch:local}
 
 \begin{content}
 
-\tf{}可以独立地运行在一个进程内，完成计算图的执行过程。本章将重点介绍本地运行时的基本架构与运行机制；重点讨论计算图剪枝、分裂、优化、执行等实现技术细节；并且详细探究在本地模式下，跨设备间\ascii{OP}之间数据交互的工作机制，及其\ascii{OP}在设备集上的编排(\ascii{placement})算法。
+\tf{}は1つのプロセス内で独立して実行され、計算グラフの実行プロセスを完了することができます。本章ではローカル実行時の基本的なアーキテクチャと実行メカニズムを重点的に紹介します。計算グラフの剪定、分割、最適化、実行などの実装技術の詳細について重点的に議論し、ローカルモードでのデバイス間の\ascii{OP}間のデータ交換の仕組みや、デバイスセット上での\ascii{OP}の配置(\ascii{placement})アルゴリズムについて詳しく探ります。
 
 \end{content}
 
-\section{本地模式}
+\section{ローカルモード}
 \label{sec:local-runtime}
 
 \begin{content}
 
-如\refig{local}所示，在本地模式下，\ascii{Client, Master, Worker}部署在同一台机器同一进程内，并由\code{DirectSession}同时扮演这三个角色。\code{DirectSession}运行在单独的进程内，各服务实体之间是函数调用关系。
+\refig{local}に示すように、ローカルモードでは\ascii{Client, Master, Worker}が同じマシンの同じプロセス内に配置され、\code{DirectSession}がこれら3つの役割を同時に担います。\code{DirectSession}は独立したプロセス内で実行され、各サービスエンティティ間は関数呼び出しの関係にあります。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/local.png}
-\caption{本地模式}
+\caption{ローカルモード}
  \label{fig:local}
 \end{figure}
 
-\ascii{Client}负责计算图的构造，通过调用\code{Session.run}，启动计算图的执行过程。如\refig{local-runtime}所示，在\code{run\_step}执行过程之中，涉及计算图的剪枝、分裂、执行三个重要阶段。
+\ascii{Client}は計算グラフの構築を担当し、\code{Session.run}を呼び出すことで計算グラフの実行プロセスを開始します。\refig{local-runtime}に示すように、\code{run\_step}の実行プロセスには、計算グラフの剪定、分割、実行という3つの重要な段階が含まれています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/local-runtime.png}
-\caption{本地模式：图操作}
+\caption{ローカルモード：グラフ操作}
  \label{fig:local-runtime}
 \end{figure}
 
-\subsection{部分执行}
+\subsection{部分実行}
 
-\ascii{Master}收到计算图执行命令后，启动计算图的剪枝操作。它根据计算图的输入输出反向遍历图，寻找一个最小依赖的子图，常称为\code{ClientGraph}。
+\ascii{Master}は計算グラフの実行コマンドを受け取ると、計算グラフの剪定操作を開始します。計算グラフの入力出力に基づいてグラフを逆方向にトラバースし、最小の依存関係を持つサブグラフを探し、これを\code{ClientGraph}と呼びます。
 
-也就是说，每次执行\code{run\_step}时，并不会执行整个计算图(\code{FullGraph})，而是执行部分的子图。剪枝体现了\tf{}部分执行的设计理念。
+つまり、\code{run\_step}を実行するたびに、全体の計算グラフ(\code{FullGraph})を実行するのではなく、部分的なサブグラフを実行します。剪定は\tf{}の部分実行の設計思想を体現しています。
 
-\subsection{并发执行}
+\subsection{並列実行}
 
-然后，运行时按照当前设备集完成图的分裂，生成了很多子图，每个子图称为\code{PartitionGraph}；然后触发各个\ascii{Worker}并发地执行每个\code{PartitionGraph}；对于每一个\ascii{PartitionGraph}，运行时将启动一个\ascii{Executor}，按照其拓扑排序完成\code{PartitionGraph}的执行。
+次に、ランタイムは現在のデバイスセットに基づいてグラフを分割し、多くのサブグラフを生成します。各サブグラフは\code{PartitionGraph}と呼ばれます。そして各\ascii{Worker}が各\code{PartitionGraph}を並列に実行します。各\ascii{PartitionGraph}に対して、ランタイムは\ascii{Executor}を起動し、そのトポロジカル順序に従って\code{PartitionGraph}の実行を完了します。
 
-也就是说，分裂和执行体现了\tf{}并发执行的设计理念。
+つまり、分割と実行は\tf{}の並列実行の設計思想を体現しています。
 
-\section{会话控制}
+\section{セッション制御}
 
-在本地模式下，其运行时由\code{DirectSession}控制。一般地，\code{DirectSession}执行计算图时，各组件之间都是函数调用关系。但是，\code{DirectSession}也存在清晰的生命周期管理机制，如\refig{local-direct-session-lifecycle}所示。
+ローカルモードでは、ランタイムは\code{DirectSession}によって制御されます。一般的に、\code{DirectSession}が計算グラフを実行する際、各コンポーネント間はすべて関数呼び出しの関係にあります。しかし、\code{DirectSession}には明確なライフサイクル管理メカニズムも存在します。\refig{local-direct-session-lifecycle}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/local-direct-session-lifecycle.png}
-\caption{DirectSession生命周期}
+\caption{DirectSessionのライフサイクル}
  \label{fig:local-direct-session-lifecycle}
 \end{figure}
 
-\subsection{领域模型}
+\subsection{ドメインモデル}
 
-如\refig{local-direct-session-model}所示，\code{DirectSession}持有\code{SimpleGraphExecutionState}实例，后者负责计算图的剪枝，生成\code{ClientGraph}实例。
+\refig{local-direct-session-model}に示すように、\code{DirectSession}は\code{SimpleGraphExecutionState}インスタンスを保持し、後者は計算グラフの剪定を担当し、\code{ClientGraph}インスタンスを生成します。
 
-\code{DirectSession}同时持有一组线程池，但是没次\code{DirectSession.run}时，根据外部配置的索引，从线程池组里选择其一为其提供服务。因为\code{DirectSession}是线程安全的，支持多个并发执行的\code{DirectSession.run}，即可以同时运行多个线程池实例。
+\code{DirectSession}は同時に一群のスレッドプールを保持しますが、毎回\code{DirectSession.run}が実行されるときに、外部の設定に基づいてスレッドプールグループから1つを選択してサービスを提供します。\code{DirectSession}はスレッドセーフであり、複数の並列実行\code{DirectSession.run}をサポートしています。つまり、複数のスレッドプールインスタンスを同時に実行できます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/local-direct-session-model.png}
-\caption{DirectSession领域模型}
+\caption{DirectSessionドメインモデル}
  \label{fig:local-direct-session-model}
 \end{figure}
 
-\subsection{创建会话}
+\subsection{セッションの作成}
 
-如\refig{local-direct-session-factory}所示，\code{DirectSession}由\code{DirectSessionFactory}多态创建。其中，\code{DeviceFactory::AddDevices}将创建本地设备集。
+\refig{local-direct-session-factory}に示すように、\code{DirectSession}は\code{DirectSessionFactory}によって多態的に作成されます。\code{DeviceFactory::AddDevices}がローカルデバイスセットを作成します。
 
-其中，\code{DirectSession}中主要完成线程池组的创建。
+\code{DirectSession}内では主にスレッドプールグループの作成が完了します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/local-direct-session-factory.png}
-\caption{多态创建DirectSession}
+\caption{DirectSessionの多態的作成}
  \label{fig:local-direct-session-factory}
 \end{figure}
 
@@ -101,7 +101,7 @@ struct DirectSessionFactory : SessionFactory {
 \end{c++}
 \end{leftbar}
 
-其中，\code{DirectSessionFactory::NewSession}由\ascii{C API}调用。
+\code{DirectSessionFactory::NewSession}は\ascii{C API}によって呼び出されます。
 
 \begin{leftbar}
 \begin{c++}
@@ -132,7 +132,7 @@ TF_DeprecatedSession* TF_NewDeprecatedSession(
 \end{c++}
 \end{leftbar}
 
-在\code{DirectSession}的构造函数中，主要负责其领域模型的初始化，包括线程池的创建，构建\code{CancellationManager}实例。
+\code{DirectSession}のコンストラクタでは、主にそのドメインモデルの初期化を担当し、スレッドプールの作成、\code{CancellationManager}インスタンスの構築が含まれます。
 
 \begin{leftbar}
 \begin{c++}
@@ -147,9 +147,9 @@ DirectSession::DirectSession(
 \end{c++}
 \end{leftbar}
 
-\subsection{销毁会话}
+\subsection{セッションの破棄}
 
-由\ascii{SessionFactory}所\code{new}出来的\code{DirectSession}，由\ascii{C API}负责\code{delete}掉。
+\ascii{SessionFactory}によって\code{new}された\code{DirectSession}は、\ascii{C API}によって\code{delete}されます。
 
 \begin{leftbar}
 \begin{c++}
@@ -161,7 +161,7 @@ void TF_DeleteDeprecatedSession(TF_DeprecatedSession* s, TF_Status* status) {
 \end{c++}
 \end{leftbar}
 
-随后，\code{DirectSession}的析构函数被调用，它负责清理其负责管理的系统资源。主要包括\code{Executor}列表，\code{ThreadPool}列表，\code{CancellationManager}实例。
+その後、\code{DirectSession}のデストラクタが呼び出され、管理下にあるシステムリソースのクリーンアップを担当します。主に\code{Executor}リスト、\code{ThreadPool}リスト、\code{CancellationManager}インスタンスが含まれます。
 
 \begin{leftbar}
 \begin{c++}
@@ -190,10 +190,9 @@ DirectSession::~DirectSession() {
 \end{c++}
 \end{leftbar}
 
-\subsection{创建/扩展图}
+\subsection{グラフの作成/拡張}
 
-首次扩展图，等价于创建图。扩展图就是在原有计算图的基础上，追加新的子图。当然，追加的子图中所包含的节点，在原有的计算图中不应该存在。
-
+グラフの最初の拡張は、グラフの作成と同等です。グラフの拡張とは、既存の計算グラフをベースに、新しいサブグラフを追加することです。もちろん、追加されるサブグラフに含まれるノードは、元の計算グラフには存在しないはずです。
 
 \begin{leftbar}
 \begin{c++}
@@ -212,24 +211,24 @@ Status DirectSession::Extend(const GraphDef& graph) {
 \end{c++}
 \end{leftbar}
 
-当创建计算图时，\code{DirectSession}主要完成\code{SimpleGraphExecutionState}实例的创建。如\refig{local-simple-graph-execution-state-model}所示，\code{SimpleGraphExecutionState}实例持有\code{FullGraph}两种格式的实例：\code{Graph}与\code{GraphDef}，并由它负责管理和维护\code{FullGraph}的生命周期。
+計算グラフを作成する際、\code{DirectSession}は主に\code{SimpleGraphExecutionState}インスタンスの作成を完了します。\refig{local-simple-graph-execution-state-model}に示すように、\code{SimpleGraphExecutionState}インスタンスは\code{FullGraph}の2つの形式のインスタンス：\code{Graph}と\code{GraphDef}を保持し、\code{FullGraph}のライフサイクルの管理と維持を担当します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/local-simple-graph-execution-state-model.png}
-\caption{创建SimpleGraphExecutionState实例}
+\caption{SimpleGraphExecutionStateインスタンスの作成}
  \label{fig:local-simple-graph-execution-state-model}
 \end{figure}
 
-其中，\code{SimpleGraphExecutionState}的主要职责包括：
+\code{SimpleGraphExecutionState}の主な責務には以下が含まれます：
 
 \begin{enum}
-  \eitem{构造\code{FullGraph}}：发生在\code{DirectSession.Create}；
-  \eitem{执行简单的\ascii{OP}编排算法}：发生在\code{DirectSession.Create}；
-  \eitem{执行图的剪枝操作}：发生在\code{DirectSession.Run}。
+  \eitem{\code{FullGraph}の構築}：\code{DirectSession.Create}で発生します；
+  \eitem{シンプルな\ascii{OP}配置アルゴリズムの実行}：\code{DirectSession.Create}で発生します；
+  \eitem{グラフの剪定操作の実行}：\code{DirectSession.Run}で発生します。
 \end{enum}
 
-当执行\code{DirectSession::Create}时，将创建\code{SimpleGraphExecutionState}实例，并完成\code{FullGraph}实例的构建和初始化。
+\code{DirectSession::Create}を実行すると、\code{SimpleGraphExecutionState}インスタンスが作成され、\code{FullGraph}インスタンスの構築と初期化が完了します。
 
 \begin{leftbar}
 \begin{c++}
@@ -248,7 +247,7 @@ Status SimpleGraphExecutionState::MakeForBaseGraph(
 \end{c++}
 \end{leftbar}
 
-其中，\code{SimpleGraphExecutionState::InitBaseGraph}完成\code{FullGraph}从\code{GraphDef}到\code{Graph}的格式转换，并启动\code{SimplePlacer}的\ascii{OP}编排算法。
+\code{SimpleGraphExecutionState::InitBaseGraph}は\code{FullGraph}を\code{GraphDef}から\code{Graph}形式に変換し、\code{SimplePlacer}の\ascii{OP}配置アルゴリズムを起動します。
 
 \begin{leftbar}
 \begin{c++}
@@ -267,62 +266,62 @@ Status SimpleGraphExecutionState::InitBaseGraph() {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{图构造：GraphDef -> Graph}
+\subsubsection{グラフ構築：GraphDef -> Graph}
 
-刚开始，\code{SimpleGraphExecutionState}得到的是\code{GraphDef}，这是最原始的图结构。它由\ascii{Client}将序列化后传递到后端\ascii{C++}，然后由后端反序列化得到的图结构。
+最初、\code{SimpleGraphExecutionState}が得るのは\code{GraphDef}で、これは最も原始的なグラフ構造です。これは\ascii{Client}が直列化して後端\ascii{C++}に渡し、後端で逆直列化して得られたグラフ構造です。
 
-如\refig{local-graph-def-to-graph}所示，通过调用\code{ConvertGraphDefToGraph}将\code{GraphDef}实例变换为等价的\code{Graph}实例；同理，可以调用\code{Graph.ToGraphDef}将\code{Graph}实例变换为等价的\code{GraphDef}实例。
+\refig{local-graph-def-to-graph}に示すように、\code{ConvertGraphDefToGraph}を呼び出して\code{GraphDef}インスタンスを等価な\code{Graph}インスタンスに変換します。同様に、\code{Graph.ToGraphDef}を呼び出して\code{Graph}インスタンスを等価な\code{GraphDef}インスタンスに変換することができます。
 
-其中，\code{GraphDef}是使用\ascii{protobuf}格式存在的图结构，它包含了图所有元数据；而\code{Graph}则是运行时系统中用于描述图结构的领域对象，它不仅仅持有\code{GraphDef}的元数据，并包含其它图结构的其它信息。
+\code{GraphDef}は\ascii{protobuf}形式で存在するグラフ構造で、グラフのすべてのメタデータを含んでいます。一方、\code{Graph}はランタイムシステムでグラフ構造を記述するためのドメインオブジェクトで、\code{GraphDef}のメタデータを保持するだけでなく、グラフ構造の他の情報も含んでいます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/local-graph-def-to-graph.png}
-\caption{\code{GraphDef}与\code{Graph}之间的格式转换}
+\caption{\code{GraphDef}と\code{Graph}間の形式変換}
  \label{fig:local-graph-def-to-graph}
 \end{figure}
 
-\subsubsection{OP编排：SimplePlacer}
+\subsubsection{OP配置：SimplePlacer}
 
-\ascii{OP}的编排(\ascii{placement})指的是，将计算图中包含的\ascii{OP}以最高效的方式置放在合适的计算设备上运算，以最大化计算资源的利用率，可以形式化地描述为\refig{local-cost-model}。
+\ascii{OP}の配置(\ascii{placement})とは、計算グラフに含まれる\ascii{OP}を最も効率的な方法で適切な計算デバイス上に配置し、計算リソースの利用率を最大化することを指します。これは\refig{local-cost-model}のように形式化して記述できます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/local-cost-model.png}
-\caption{费用模型}
+\caption{コストモデル}
  \label{fig:local-cost-model}
 \end{figure}
 
-求取最优的编排方案，我猜想这是一个\ascii{NP}问题。该问题取决于计算图的特征，网络拓扑与带宽，样本数目等多个复杂的因素，该问题也是社区中最活跃的问题之一。
+最適な配置計画を求めるのは、私の推測では\ascii{NP}問題です。この問題は計算グラフの特性、ネットワークトポロジーと帯域幅、サンプル数など多くの複雑な要因に依存し、コミュニティで最もアクティブな問題の1つでもあります。
 
-\subsection{迭代执行}
+\subsection{反復実行}
 
-\code{DirectSession.Run}是\tf{}运行时的关键路径，它负责完成一次迭代计算。首先，\code{DirectSession}根据输入/输出对\code{FullGraph}实施剪枝，生成\code{ClientGraph}；然后，根据所持有本地设备集，将\code{ClientGraph}分裂为多个\code{PartitionGraph}；运行时为其每个\code{PartitionGraph}启动一个\code{Executor}实例，后者执行\code{PartitionGraph}的拓扑排序算法，完成计算图的执行。
+\code{DirectSession.Run}は\tf{}ランタイムの重要なパスであり、1回の反復計算を完了する責任があります。まず、\code{DirectSession}は入力/出力に基づいて\code{FullGraph}に剪定を実施し、\code{ClientGraph}を生成します。次に、保持しているローカルデバイスセットに基づいて、\code{ClientGraph}を複数の\code{PartitionGraph}に分割します。ランタイムは各\code{PartitionGraph}に対して\code{Executor}インスタンスを起動し、後者は\code{PartitionGraph}のトポロジカルソートアルゴリズムを実行して、計算グラフの実行を完了します。
 
-具体实现，请参照\refsec{graph-operation-prune}，\refsec{graph-operation-split}，\refsec{graph-operation-exec}。
+具体的な実装については、\refsec{graph-operation-prune}、\refsec{graph-operation-split}、\refsec{graph-operation-exec}を参照してください。
 
-\subsubsection{图操作}
+\subsubsection{グラフ操作}
 
-如\refig{local-graph-transformation}所示，在本地模式下，计算图经历三个形态的变换，最终被分解至各个计算设备上，以便实现在各个计算设备上并发执行子图。
+\refig{local-graph-transformation}に示すように、ローカルモードでは計算グラフは3つの形態の変換を経て、最終的に各計算デバイスに分解され、各計算デバイス上でサブグラフを並列実行できるようになります。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/local-graph-transformation.png}
-\caption{图变换}
+\caption{グラフ変換}
  \label{fig:local-graph-transformation}
 \end{figure}
 
 \begin{itemize}
-  \item \code{FullGraph}: \ascii{Client}负责构造的完整的计算图，常称为\code{FullGraph}；但是，一次\code{Session.run}并不会执行整个计算图；
-  \item \code{ClientGraph}: \ascii{Master}根据\code{Session.run}传递\code{feeds, fetches}输入输出列表，对\ascii{FullGraph}实施剪枝操作，计算得到本地迭代执行的最小依赖子图，常称为\code{ClientGraph}；
-  \item \code{PartitionGraph}: \ascii{Master}根据当前计算设备集，及其\ascii{OP}的设备约束规范，将\code{ClientGraph}分裂为多个\code{PartitionGraph}；其中，每个计算设备对应一个\code{PartitionGraph}，计算设备负责\code{PartitionGraph}的执行。
+  \item \code{FullGraph}: \ascii{Client}が構築する完全な計算グラフで、\code{FullGraph}と呼ばれます。ただし、1回の\code{Session.run}で全体の計算グラフが実行されるわけではありません。
+  \item \code{ClientGraph}: \ascii{Master}が\code{Session.run}で渡される\code{feeds, fetches}入出力リストに基づいて\ascii{FullGraph}に剪定操作を実施し、ローカル反復実行の最小依存サブグラフを計算したもので、\code{ClientGraph}と呼ばれます。
+  \item \code{PartitionGraph}: \ascii{Master}が現在の計算デバイスセットと\ascii{OP}のデバイス制約仕様に基づいて、\code{ClientGraph}を複数の\code{PartitionGraph}に分割します。各計算デバイスに1つの\code{PartitionGraph}が対応し、計算デバイスが\code{PartitionGraph}の実行を担当します。
 \end{itemize}
 
-但是，\code{FullGraph, ClientGraph, PartitionGraph}的数据结构相同，它们都是\code{Graph}三种不同表现形式，仅仅大小和范畴存在差异。
+ただし、\code{FullGraph, ClientGraph, PartitionGraph}のデータ構造は同じであり、これらはすべて\code{Graph}の3つの異なる表現形式で、サイズと範囲のみが異なります。
 
 \subsubsection{形式化}
 
-在真实的系统实现中，本地模式的运行时是使用\ascii{C++}实现。其中，\tf{}运行时的关键路径为\code{run\_step}。因为真实系统实现中涉及过多的细节，不易发现算法的主干和逻辑。为了简化问题的描述，将形式化地描述\code{run\_step}的实现过程。
+実際のシステム実装では、ローカルモードのランタイムは\ascii{C++}で実装されています。\tf{}ランタイムの重要なパスは\code{run\_step}です。実際のシステム実装には多くの詳細が含まれているため、アルゴリズムの主幹と論理を見出すのが困難です。問題の記述を簡略化するために、\code{run\_step}の実装プロセスを形式的に記述します。
 
 \begin{leftbar}
 \begin{python}
@@ -345,11 +344,11 @@ def run_step(devices, full_graph, inputs, outputs):
 \end{python}
 \end{leftbar}
 
-其中，在每个计算设备上，启动一个\code{Executor}执行分配给它的\code{PartitionGraph}。当某一个计算设备执行完所分配的\code{PartitionGraph}之后，\code{ExecutorBarrier}的计数器加\ascii{1}，直至所有设备完成\code{PartitionGraph}列表的执行，\code{barrier.wait()}阻塞操作退出。
+各計算デバイス上で、\code{Executor}を起動して割り当てられた\code{PartitionGraph}を実行します。ある計算デバイスが割り当てられた\code{PartitionGraph}の実行を完了すると、\code{ExecutorBarrier}のカウンターが1増加し（初期値は\code{num\_executors}）、すべてのデバイスが\code{PartitionGraph}リストの実行を完了するまで、\code{barrier.wait()}のブロック操作が終了します。
 
-跨设备的\code{PartitionGraph}之间可能存在数据依赖关系，它们之间通过插入\code{Send/Recv}节点完成交互。事实上，在本地模式中，\code{Send/Recv}通过\code{Rendezvous}完成数据交换的。\code{Send}将数据放在\code{Rendezvous}上，而\code{Recv}则根据标识从\code{Rendezvous}取走。其中，\code{Send}不阻塞，而\code{Recv}是阻塞的。
+デバイスを跨ぐ\code{PartitionGraph}間にはデータ依存関係が存在する可能性があり、それらの間では\code{Send/Recv}ノードを挿入して相互作用を完了します。実際には、ローカルモードでは、\code{Send/Recv}は\code{Rendezvous}を通じてデータ交換を完了します。\code{Send}はデータを\code{Rendezvous}に置き、\code{Recv}は識別子に基づいて\code{Rendezvous}からデータを取り出します。\code{Send}はブロックしませんが、\code{Recv}はデータが到着していない場合にブロックし、タイムアウトまで待機します。
 
-\subsection{关闭会话}
+\subsection{セッションの終了}
 
 \begin{leftbar}
 \begin{c++}
@@ -365,12 +364,12 @@ Status DirectSession::Close() {
 \end{c++}
 \end{leftbar}
 
-如\refig{local-cancellation-manager}所示，将\ascii{Step}注册给\code{DirectSession}的\code{CancellationManager}之中。当\code{DirectSession}被关闭时，\code{DirectSession}的\code{CancellationManager}，将取消这次\ascii{step}的执行过程。
+\refig{local-cancellation-manager}に示すように、\ascii{Step}を\code{DirectSession}の\code{CancellationManager}に登録します。\code{DirectSession}が閉じられると、\code{DirectSession}の\code{CancellationManager}がこの\ascii{step}の実行プロセスをキャンセルします。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/local-cancellation-manager.png}
-\caption{CancellationManager工作原理}
+\caption{CancellationManagerの動作原理}
  \label{fig:local-cancellation-manager}
 \end{figure}
 
@@ -397,9 +396,9 @@ Status DirectSession::Run(
 \end{c++}
 \end{leftbar}
 
-当前\ascii{Step}的\code{CancellationManager}最终会传递给\code{OpKernelContext}。\ascii{Kernel}实现计算时，如果保存了中间状态，可以向其注册相应的回调钩子。其中，每个回调钩子都有唯一的\code{token}标识。
+現在の\ascii{Step}の\code{CancellationManager}は最終的に\code{OpKernelContext}に渡されます。\ascii{Kernel}が計算を実装する際に中間状態を保存している場合、それに対応するコールバックフックを登録できます。各コールバックフックには一意の\code{token}識別子があります。
 
-当\ascii{Step}被取消时，回调钩子被调用，该\ascii{Kernel}可以取消该\ascii{OP}的计算。例如，\code{FIFOQueue}实现\code{TryEnqueue}时，便往本次\ascii{Step}的\code{CancellationManager}注册了回调钩子，用于取消该\ascii{Kernel}中间的状态信息。
+\ascii{Step}がキャンセルされると、コールバックフックが呼び出され、その\ascii{Kernel}はその\ascii{OP}の計算をキャンセルできます。例えば、\code{FIFOQueue}が\code{TryEnqueue}を実装する際に、この\ascii{Step}の\code{CancellationManager}にコールバックフックを登録し、その\ascii{Kernel}の中間状態情報をキャンセルするために使用します。
 
 \begin{leftbar}
 \begin{c++}
@@ -418,24 +417,23 @@ void FIFOQueue::TryEnqueue(const Tuple& tuple, OpKernelContext* ctx,
 \end{c++}
 \end{leftbar}
 
-
-\section{剪枝}
+\section{剪定}
 \label{sec:graph-operation-prune}
 
-\code{DirectSession::Run}执行时，首先完成\code{ClientGraph}的构造。事实上，\code{ClientGraph}的构造过程，主要完成\code{FullGraph}的剪枝算法，并生成\code{ClientGraph}。
+\code{DirectSession::Run}の実行時、まず\code{ClientGraph}の構築を完了します。実際、\code{ClientGraph}の構築プロセスは、主に\code{FullGraph}の剪定アルゴリズムを完了し、\code{ClientGraph}を生成します。
 
-\subsection{构建ClientGraph}
+\subsection{ClientGraphの構築}
 
-如\refig{local-simple-graph-execution-state}所示，\code{SimpleGraphExecutionState}实例持有\code{FullGraph}实例，并根据输入/输出列表，生成\code{ClientGraph}。
+\refig{local-simple-graph-execution-state}に示すように、\code{SimpleGraphExecutionState}インスタンスは\code{FullGraph}インスタンスを保持し、入力/出力リストに基づいて\code{ClientGraph}を生成します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.55\textwidth]{figures/local-simple-graph-execution-state.png}
-\caption{生成\code{ClientGraph}}
+\caption{\code{ClientGraph}の生成}
  \label{fig:local-simple-graph-execution-state}
 \end{figure}
 
-其中，\code{BuildGraphOptions}包含了输入/输出列表，调用\code{SimpleGraphExecutionState::BuildGraph}生成\code{ClientGraph}实例。
+\code{BuildGraphOptions}には入力/出力リストが含まれており、\code{SimpleGraphExecutionState::BuildGraph}を呼び出して\code{ClientGraph}インスタンスを生成します。
 
 \begin{leftbar}
 \begin{c++}
@@ -495,7 +493,7 @@ Status DirectSession::Run(
 \end{c++}
 \end{leftbar}
 
-\code{ClientGraph}初始来自原始的\code{FullGraph}，调用\code{RewriteGraphForExecution}函数，将根据输入/输出，对\code{ClientGraph}实施改写操作，包括增加节点，或删除节点，最终生成\code{SimpleClientGraph}实例。
+\code{ClientGraph}は最初は元の\code{FullGraph}から来ており、\code{RewriteGraphForExecution}関数を呼び出して、入力/出力に基づいて\code{ClientGraph}を書き換え操作を実施し、ノードの追加や削除を行い、最終的に\code{SimpleClientGraph}インスタンスを生成します。
 
 \begin{leftbar}
 \begin{c++}
@@ -531,67 +529,67 @@ Status SimpleGraphExecutionState::BuildGraph(
 \end{c++}
 \end{leftbar}
 
-因此，构建\code{ClientGraph}过程，其关键路径为\code{RewriteGraphForExecution}，即剪枝算法。剪枝算法根据输入/输出列表，反向遍历\ascii{FullGraph}，找到最小的依赖子图\code{ClientGraph}。
+したがって、\code{ClientGraph}の構築プロセスの重要なパスは\code{RewriteGraphForExecution}、つまり剪定アルゴリズムです。剪定アルゴリズムは入力/出力リストに基づいて\ascii{FullGraph}を逆方向にトラバースし、最小の依存サブグラフ\code{ClientGraph}を見つけます。
 
-一般地，对于\code{ClientGraph}输入节点，扮演了起始节点；而输出节点，扮演了终止节点。因此，关于输入和输出，存在两个比较棘手的问题：
+一般的に、\code{ClientGraph}の入力ノードは開始ノードの役割を果たし、出力ノードは終了ノードの役割を果たします。したがって、入力と出力に関しては2つの厄介な問題があります：
 
 \begin{enum}
-  \eitem{输入：当\code{ClientGraph}计算开始前，外部的运行时如何传递\code{Tensor}给输入节点}；
-  \eitem{输出：当\code{ClientGraph}计算完成后，外部的运行时又如何从输出节点获取\code{Tensor}}。
+  \eitem{入力：\code{ClientGraph}の計算が開始される前に、外部のランタイムがどのように入力ノードに\code{Tensor}を渡すか}
+  \eitem{出力：\code{ClientGraph}の計算が完了した後、外部のランタイムがどのように出力ノードから\code{Tensor}を取得するか}
 \end{enum}
 
-存在两种媒介：\code{FunctionCallFrame}和\code{Rendezvous}，外部运行时与输入/输出节点可以使用其中一种媒介交换数据。
+2つの媒体があります：\code{FunctionCallFrame}と\code{Rendezvous}。外部ランタイムと入力/出力ノードはこれらのいずれかの媒体を使用してデータを交換できます。
 
-\code{FunctionCallFrame}用于\code{Arg/RetVal}函数调用的\ascii{OP}，用于函数调用时传递函数参数值，及其返回函数值。但是，它们仅适用于单进程的运行时环境。
+\code{FunctionCallFrame}は\code{Arg/RetVal}関数呼び出しの\ascii{OP}に使用され、関数呼び出し時に関数パラメータ値を渡し、関数値を返すために使用されます。ただし、これらは単一プロセスのランタイム環境にのみ適用されます。
 
-\code{Rendezvous}用于\code{Send/Recv}消息发送的\ascii{OP}，这是一种更为通用的通信方式，适用于分布式的运行时环境。
+\code{Rendezvous}は\code{Send/Recv}メッセージ送信の\ascii{OP}に使用され、これはより一般的な通信方法で、分散ランタイム環境に適用されます。
 
-\subsection{基于Rendezvous}
+\subsection{Rendezvousベース}
 
-如\refig{client-prune-graph}所示，根据\code{fetches}列表，反向搜索依赖的节点，直至\code{feeds}，计算得到最小依赖的子图。
+\refig{client-prune-graph}に示すように、\code{fetches}リストに基づいて、依存するノードを逆方向に検索し、\code{feeds}に到達するまで、最小依存のサブグラフを計算します。
 
-对于\code{Feed}的边实施剪枝，例如剪枝\code{ina:0})边，并在此处插入节点\code{Recv}，并按照输入边的名字命名该节点，例如\code{\_recv\_ina\_0}。
+\code{Feed}のエッジに対して剪定を実施します。例えば、\code{ina:0}エッジを剪定し、ここに\code{Recv}ノードを挿入し、入力エッジの名前に基づいてそのノードに名前を付けます。例えば\code{\_recv\_ina\_0}のようになります。
 
-同理，对于\code{Fetch}的边也实施剪枝，例如剪枝\code{f:0}边，并在此处插入节点\code{Send}节点，并按照输出边的名字命名该节点，例如\code{\_send\_f\_0}。
+同様に、\code{Fetch}のエッジに対しても剪定を実施します。例えば、\code{f:0}エッジを剪定し、ここに\code{Send}ノードを挿入し、出力エッジの名前に基づいてそのノードに名前を付けます。例えば\code{\_send\_f\_0}のようになります。
 
-最终，通过插入\code{Source/Sink}节点，将剪枝后得到各个联通的子图进行汇总，形成一个完整的\ascii{DAG}图。
+最終的に、\code{Source/Sink}ノードを挿入することで、剪定後に得られた各連結サブグラフを集約し、完全な\ascii{DAG}グラフを形成します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/client-prune-graph.png}
-\caption{图剪枝：插入Send/Recv节点}
+\caption{グラフ剪定：Send/Recvノードの挿入}
  \label{fig:client-prune-graph}
 \end{figure}
 
-\subsection{基于FunctionCallFrame}
+\subsection{FunctionCallFrameベース}
 
-但是，输入/输出通过\code{Rendezvous}交换数据可能存在性能上的瓶颈。因为待发送的\code{Tensor}需要携带发送设备，接收设备，\code{TensorId}，共同组成了唯一的字符串标识，数据发送和接收需要花费很长的字符串解析的时间开销。
+しかし、入力/出力を\code{Rendezvous}を通じてデータ交換するとパフォーマンスのボトルネックが存在する可能性があります。送信する\code{Tensor}は送信デバイス、受信デバイス、\code{TensorId}を含む一意の文字列識別子を携帯する必要があり、データの送受信には長い文字列解析の時間オーバーヘッドがかかります。
 
-特殊地，对于本地模式，因为在同一进程内，使用\code{Rendezvous}交换数据存在不必要的性能损耗。可以使用基于\code{FunctionCallFrame}函数调用替代之。
+特に、ローカルモードでは、同じプロセス内にあるため、\code{Rendezvous}を使用してデータを交換すると不要なパフォーマンスの損失が生じます。\code{FunctionCallFrame}関数呼び出しを使用して代替することができます。
 
-因此，在本地模式下，可以使用\code{Arg/RetVal}分别替代\code{Send/Recv}节点，从而实现了函数调用交换数据的方式，替代原有基于\code{Rendezvous}交互数据的方式。
+したがって、ローカルモードでは、\code{Arg/RetVal}を使用して\code{Send/Recv}ノードをそれぞれ置き換えることで、関数呼び出しによるデータ交換方式を実現し、元の\code{Rendezvous}ベースのデータ交換方式を置き換えることができます。
 
-如\refig{client-prune-graph-function-ops}所示。对于\code{Feed}的边实施剪枝，例如剪枝\code{ina:0})边，并在此处插入节点\code{Arg}，并按照输入边的名字命名该节点，例如\code{\_arg\_ina\_0}。
+\refig{client-prune-graph-function-ops}に示すように、\code{Feed}のエッジに対して剪定を実施します。例えば、\code{ina:0}エッジを剪定し、ここに\code{Arg}ノードを挿入し、入力エッジの名前に基づいてそのノードに名前を付けます。例えば\code{\_arg\_ina\_0}のようになります。
 
-同理，对于\code{Fetch}的边也实施剪枝，例如剪枝\code{f:0}边，并在此处插入节点\code{RetVal}节点，并按照输出边的名字命名该节点，例如\code{\_retval\_f\_0}。
+同様に、\code{Fetch}のエッジに対しても剪定を実施します。例えば、\code{f:0}エッジを剪定し、ここに\code{RetVal}ノードを挿入し、出力エッジの名前に基づいてそのノードに名前を付けます。例えば\code{\_retval\_f\_0}のようになります。
 
-最终，通过插入\code{Source/Sink}节点，将剪枝后得到各个联通的子图进行汇总，形成一个完整的\ascii{DAG}图。
+最終的に、\code{Source/Sink}ノードを挿入することで、剪定後に得られた各連結サブグラフを集約し、完全な\ascii{DAG}グラフを形成します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/client-prune-graph-function-ops.png}
-\caption{图剪枝：插入Arg/RetVal节点}
+\caption{グラフ剪定：Arg/RetValノードの挿入}
  \label{fig:client-prune-graph-function-ops}
 \end{figure}
 
-\subsection{剪枝算法实现}
+\subsection{剪定アルゴリズムの実装}
 
-剪枝算法主要由\code{RewriteGraphForExecution}完成，主要包括\ascii{3}个子过程。
+剪定アルゴリズムは主に\code{RewriteGraphForExecution}によって完了し、主に3つのサブプロセスを含みます。
 
 \begin{enum}
-  \eitem{追加输入节点}
-  \eitem{追加输出节点} 
-  \eitem{反向剪枝}
+  \eitem{入力ノードの追加}
+  \eitem{出力ノードの追加} 
+  \eitem{逆方向剪定}
 \end{enum}
 
 \begin{leftbar}
@@ -612,18 +610,18 @@ void RewriteGraphForExecution(Graph* g, bool use_function,
 \end{c++}
 \end{leftbar}
 
-\subsubsection{追加输入节点}
+\subsubsection{入力ノードの追加}
 
-如\refig{local-prune-feed}所示，对于任意一条输入边实施剪枝时，插入相应的\code{Arg}或\code{Recv}节点，删除既有的边，并重新连接相应的边。
+\refig{local-prune-feed}に示すように、任意の入力エッジに対して剪定を実施する際、対応する\code{Arg}または\code{Recv}ノードを挿入し、既存のエッジを削除し、関連するエッジを再接続します。
 
-在计算图中，一条边唯一地由\code{TensorId}标识，它由\code{op:src\_output}二元组构成。前者表示边的上游节点，后者表示给边为上游节点的第几条边。
+計算グラフでは、1つのエッジは\code{TensorId}によって一意に識別されます。これは\code{op:src\_output}の2項組で構成されます。前者はエッジの上流ノードを表し、後者はこのエッジが上流ノードの何番目のエッジであるかを表します。
 
-示例代码删除了部分不重要的逻辑，并搬迁了部分函数的职责，并在局部尝试部分函数提取，以便更好地还原算法的逻辑。其中，假设\code{Graph}可以按照\code{TensorId}索引节点和边。
+サンプルコードでは重要でない論理の一部を削除し、一部の関数の責任を移動し、局所的に一部の関数抽出を試みて、アルゴリズムの論理をより良く再現しています。ここでは、\code{Graph}が\code{TensorId}に基づいてノードとエッジをインデックス化できると仮定しています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/local-prune-feed.png}
-\caption{剪枝：输入边}
+\caption{剪定：入力エッジ}
  \label{fig:local-prune-feed}
 \end{figure}
 
@@ -663,7 +661,7 @@ namespace {
 
   // 1. append arg/recv node
   Node* AppendNewNode(Graph& g, bool use_function, size_t index, 
-    const TensorId& tensor_id，const DeviceAttributes& device_info) {
+    const TensorId& tensor_id∩╝îconst DeviceAttributes& device_info) {
     if (use_function) {
       return AppendArgNode(g, index, tensor_id, device_info);
     } else {
@@ -697,17 +695,17 @@ void FeedInputs(Graph& g, bool use_function,
 \end{c++}
 \end{leftbar}
 
-\subsubsection{追加输出节点}
+\subsubsection{出力ノードの追加}
 
-对于任意一条输出边实施剪枝时，插入相应的\code{RetVal}或\code{Send}节点，并将其与\code{Sink}节点通过控制依赖边连接。
+任意の出力エッジに対して剪定を実施する際、対応する\code{RetVal}または\code{Send}ノードを挿入し、それを\code{Sink}ノードと制御依存エッジで接続します。
 
-如\refig{local-prune-fetch}所示，对输出边实施剪枝操作。新节点与上游节点的连接关系，在构造新节点时，通过\code{Input}已经指定。另外，函数直接返回了新节点(\code{RetVal/Send})为终止节点，因此没必要删除原来的边，其算法与输入边的处理存在微妙的差异。
+\refig{local-prune-fetch}に示すように、出力エッジに対して剪定操作を実施します。新しいノードと上流ノードの接続関係は、新しいノードの構築時に\code{Input}によって既に指定されています。また、関数は新しいノード（\code{RetVal/Send}）を終了ノードとして直接返すため、元のエッジを削除する必要がなく、そのアルゴリズムは入力エッジの処理と微妙な違いがあります。
 
 \begin{figure}[H]
-\centering
-\includegraphics[width=0.6\textwidth]{figures/local-prune-feed.png}
-\caption{剪枝：输出边}
- \label{fig:local-prune-fetch}
+  \centering
+  \includegraphics[width=0.6\textwidth]{figures/local-prune-feed.png}
+  \caption{剪定：出力エッジ}
+  \label{fig:local-prune-fetch}
 \end{figure}
 
 \begin{leftbar}
@@ -746,7 +744,7 @@ namespace {
 
   // 1. append retval/send node
   Node* AppendNewNode(Graph& g, bool use_function, size_t index, 
-    const TensorId& tensor_id，const DeviceAttributes& device_info) {
+    const TensorId& tensor_id∩╝îconst DeviceAttributes& device_info) {
     if (use_function) {
       return AppendRetvalNode(g, index, tensor_id, device_info);
     } else {
@@ -771,11 +769,11 @@ void FetchOutputs(Graph& g, bool use_function,
 \end{c++}
 \end{leftbar}
 
-\subsubsection{反向剪枝}
+\subsubsection{逆方向剪定}
 
-剪枝操作，其本质就是\ascii{DAG}反向的宽度优先遍历算法。首先，创建了一个队列，及其一个\code{visited}数组，后者用于记录已经遍历过的节点。初始化时，队列仅包含输出节点和输入节点(\code{targets})。当图遍历完毕后，不再\code{visited}里面的节点，表示本此执行不依赖于它，应从图中删除该节点，及其相关联的边。
+剪定操作の本質は、\ascii{DAG}の逆方向幅優先探索アルゴリズムです。まず、キューと\code{visited}配列を作成します。後者は既に探索されたノードを記録するために使用されます。初期化時、キューには出力ノードと入力ノード（\code{targets}）のみが含まれます。グラフの探索が完了した後、\code{visited}に含まれていないノードは、今回の実行に依存していないことを示し、そのノードと関連するエッジをグラフから削除する必要があります。
 
-经过剪枝后，将形成若干\ascii{DAG}子图。将入度为\code{0}的节点，与\code{Source}节点通过控制依赖边相连接；出度为\ascii{0}的节点，与\code{Sink}节点通过控制依赖边相连接，最终形成一个完整的\ascii{DAG}图。
+剪定後、複数の\ascii{DAG}サブグラフが形成されます。入次数が\code{0}のノードを\code{Source}ノードと制御依存エッジで接続し、出次数が\code{0}のノードを\code{Sink}ノードと制御依存エッジで接続し、最終的に完全な\ascii{DAG}グラフを形成します。
 
 \begin{leftbar}
 \begin{c++}
@@ -851,73 +849,73 @@ void PruneForTargets(Graph* g,
 \end{c++}
 \end{leftbar}
 
-\section{分裂}
+\section{分割}
 \label{sec:graph-operation-split}
 
-如\refig{local-graph-split-by-device}所示，假如\code{d}节点放置在\ascii{GPU0}上执行，而其他节点放置在\ascii{CPU0}上执行。其中，节点\code{a}与\code{b}通过\code{Arg}输入数据；节点\code{f}将其结果输出到\code{RetVal}节点上。
+\refig{local-graph-split-by-device}に示すように、\code{d}ノードが\ascii{GPU0}上で実行され、他のノードが\ascii{CPU0}上で実行されると仮定します。ここで、ノード\code{a}と\code{b}は\code{Arg}を通じてデータを入力し、ノード\code{f}はその結果を\code{RetVal}ノードに出力します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/local-graph-split-by-device.png}
-\caption{按本地设备集执行图分裂}
+\caption{ローカルデバイスセットによるグラフ分割の実行}
  \label{fig:local-graph-split-by-device}
 \end{figure}
 
-因此，计算图中存在若干条边跨越设备。对于跨越设备的边，运行时将其分裂，并就地插入\code{Send/Recv}边，分别用于原设备上发送数据，并在目标设备上接受数据，完成设备间的数据交换。如\refig{local-graph-split-insert-send-recv}所示。
+したがって、計算グラフにはデバイスを跨ぐエッジが複数存在します。デバイスを跨ぐエッジに対して、ランタイムはそれを分割し、その場所に\code{Send/Recv}エッジを挿入します。これらは元のデバイスでデータを送信し、目標デバイスでデータを受信するためのもので、デバイス間のデータ交換を完了します。\refig{local-graph-split-insert-send-recv}に示すとおりです。
 
-其中，\code{Arg/RetVal}节点通过媒介\code{FunctionCallFrame}交换数据；\code{Send/Recv}节点通过媒介\code{Rendezvous}交换数据。
+\code{Arg/RetVal}ノードは\code{FunctionCallFrame}媒体を通じてデータを交換し、\code{Send/Recv}ノードは\code{Rendezvous}媒体を通じてデータを交換します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/local-graph-split-insert-send-recv.png}
-\caption{跨设备OP之间插入Send/Recv节点}
+\caption{デバイスを跨ぐOP間にSend/Recvノードを挿入}
  \label{fig:local-graph-split-insert-send-recv}
 \end{figure}
 
-\subsection{情况1}
+\subsection{ケース1}
 
-最简单的情况下，\code{src}与\code{dst}在同一个\code{Partition}内。因此，直接将其划归在同一个\code{Partition}即可。
+最も単純なケースでは、\code{src}と\code{dst}が同じ\code{Partition}内にあります。したがって、それらを同じ\code{Partition}に直接割り当てるだけで十分です。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/split-graph-1.png}
-\caption{情况1：src与dst在同一个Partition内}
+\caption{ケース1：srcとdstが同じPartition内}
  \label{fig:split-graph-1}
 \end{figure}
 
-\subsection{情况2}
+\subsection{ケース2}
 
-如果\code{src}与\code{dst}不在同一个\code{Partition}内，但两者之间原来是通过普通边连接在一起的。因此，仅需要在它们中间增加\code{Send}与\code{Recv}节点，将其划归在两个不同的\code{Partition}内。
+\code{src}と\code{dst}が同じ\code{Partition}内にない場合、ただし両者の間が元々通常のエッジで接続されている場合。この場合、それらの間に\code{Send}と\code{Recv}ノードを追加し、2つの異なる\code{Partition}に割り当てるだけで十分です。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/split-graph-2.png}
-\caption{情况2：src与dst不在同一个Partition内，但两者之间是普通边}
+\caption{ケース2：srcとdstが同じPartition内にないが、両者の間が通常のエッジ}
  \label{fig:split-graph-2}
 \end{figure}
 
-\subsection{情况3}
+\subsection{ケース3}
 
-如果\code{src}与\code{dst}不在同一个\code{Partition}内，但两者之间原来是通过控制依赖边连接在一起的。
+\code{src}と\code{dst}が同じ\code{Partition}内にない場合、ただし両者の間が元々制御依存エッジで接続されている場合。
 
-此时，需要在\code{src}侧增加一个\code{Const}的\code{DummyNode}，并作为\code{src}的下游通过控制依赖边相连；最终，在通过\code{Send}将其值发送到对端。
+この場合、\code{src}側に\code{Const}の\code{DummyNode}を追加し、それを\code{src}の下流として制御依存エッジで接続する必要があります。最終的に、\code{Send}を通じてその値を対向側に送信します。
 
-在\code{dst}侧，\code{Recv}收到该值，使用\code{Identity}将其消费掉；最终，再将\code{Identity}与\code{dst}连接控制依赖边。
+\code{dst}側では、\code{Recv}がその値を受信し、\code{Identity}を使用してそれを消費します。最後に、\code{Identity}と\code{dst}を制御依存エッジで接続します。
 
-在这里，\code{Const}扮演生产者，\code{Identity}扮演消费者角色。既满足了跨设备间通信的需求，又满足原来\code{src}与\code{dst}之间的控制依赖的关系。但是，其缺点就是存在微妙的性能开销。
+ここで、\code{Const}は生産者の役割を果たし、\code{Identity}は消費者の役割を果たします。これにより、デバイス間通信の要求を満たすと同時に、元の\code{src}と\code{dst}間の制御依存関係も満たします。ただし、欠点としてわずかなパフォーマンスオーバーヘッドが存在します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/split-graph-3.png}
-\caption{情况3：src与dst不在同一个Partition内，但两者之间是控制依赖边}
+\caption{ケース3：srcとdstが同じPartition内にないが、両者の間が制御依存エッジ}
  \label{fig:split-graph-3}
 \end{figure}
 
-\subsection{分裂算法实现}
+\subsection{分割アルゴリズムの実装}
 
-分裂算法也是一个反向遍历图的算法。对于当前遍历的节点，将其标记为\code{dst}；然后再寻找\code{dst}的所有输入边；遍历所有输入边，从而找到与改边相连的源节点，将其标记为\code{src}。
+分割アルゴリズムも、グラフの逆方向探索アルゴリズムです。現在探索中のノードを\code{dst}としてマークし、次に\code{dst}のすべての入力エッジを探します。すべての入力エッジを探索し、そのエッジに接続されているソースノードを見つけ、それを\code{src}としてマークします。
 
-因此，更具上述讨论的三种情况，迭代实现\code{src}与\code{dst}两者之前的\code{Partition}划分算法。
+したがって、上記で議論した3つのケースに基づいて、\code{src}と\code{dst}間の\code{Partition}分割アルゴリズムを反復的に実装します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1089,9 +1087,9 @@ Status Partition(const PartitionOptions& opts,
 \end{c++}
 \end{leftbar}
 
-\subsection{回调函数}
+\subsection{コールバック関数}
 
-在\code{PartitionOptions}中，存在两个重要的回调函数。\code{NodeToLocFunc}用于图分裂；\code{NewNameFunc}用于给新增加的节点命名，例如\code{Send/Recv}。
+\code{PartitionOptions}には、2つの重要なコールバック関数があります。\code{NodeToLocFunc}はグラフ分割に使用され、\code{NewNameFunc}は新しく追加されたノードに名前を付けるために使用されます（例：\code{Send/Recv}）。
 
 \begin{leftbar}
 \begin{c++}
@@ -1107,7 +1105,7 @@ struct PartitionOptions {
 \end{c++}
 \end{leftbar}
 
-对于图分裂，存在两种最基本的分裂方法。
+グラフ分割には、2つの最も基本的な分割方法があります。
 
 \begin{leftbar}
 \begin{c++}
@@ -1124,61 +1122,57 @@ string SplitByWorker(const Node* node) {
 \end{c++}
 \end{leftbar}
 
-在本地模式下，\code{NodeToLocFunc}被配置为\code{SplitByDevice}。如图\code{intraprocess-splity-by-device}所示。
+ローカルモードでは、\code{NodeToLocFunc}は\code{SplitByDevice}に設定されます。図\code{intraprocess-splity-by-device}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/intraprocess-splity-by-device.png}
-\caption{本地模式：SplitByDevice}
+\caption{ローカルモード：SplitByDevice}
  \label{fig:intraprocess-splity-by-device}
 \end{figure}
 
+分散モードでは、\code{Master}の\code{NodeToLocFunc}は\code{SplitByWorker}に設定され、\code{Worker}の\code{NodeToLocFunc}は\code{SplitByDevice}に設定されます。
 
-在分布式模式下，\code{Master}的\code{NodeToLocFunc}被配置为\code{SplitByWorker}；而\code{Worker}
-的\code{NodeToLocFunc}被配置为\code{SplitByDevice}。
-
-因此，在分布式模式下，图分裂经历了两级分离。第一级按照\code{SplitByWorker}分裂，将图划分到各个\code{Worker}上去；第二级按照\code{SplitByDevice}，再将图划分到各个计算设备上去。
+したがって、分散モードでは、グラフ分割は2段階の分離を経験します。第1段階では\code{SplitByWorker}に基づいて分割し、グラフを各\code{Worker}に分割します。第2段階では\code{SplitByDevice}に基づいて、グラフを各計算デバイスに分割します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/interprocess-splity-by-worker.png}
-\caption{分布式模式：两级分裂}
+\caption{分散モード：2段階分割}
  \label{fig:interprocess-splity-by-worker}
 \end{figure}
 
-\section{执行}
+\section{実行}
 \label{sec:graph-operation-exec}
 
-接下来，运行时将并发执行各个\code{PartitionGraph}。如\refig{local-graph-execution}所示，每个\code{PartitionGraph}启动一个\code{Executor}，实现并发执行图的计算。
+次に、ランタイムは各\code{PartitionGraph}を並列実行します。\refig{local-graph-execution}に示すように、各\code{PartitionGraph}に対して\code{Executor}を起動し、グラフの計算を並列実行します。
 
-每个\code{Executor}将执行\code{PartitionGraph}的拓扑排序算法，将入度为\ascii{0}的\ascii{OP}追加到\code{ready\_queue}之中，并将其关联的\ascii{OP}的入度减\ascii{1}。调度器调度\code{ready\_queue}之中\ascii{OP
-}，并将其放入\code{ThreadPool}中执行对应的\ascii{Kernel}实现。
+各\code{Executor}は\code{PartitionGraph}のトポロジカルソートアルゴリズムを実行し、入次数が\ascii{0}の\ascii{OP}を\code{ready\_queue}に追加し、それに関連する\ascii{OP}の入次数を1減らします。スケジューラーは\code{ready\_queue}内の\ascii{OP}をスケジュールし、それを\code{ThreadPool}に入れて対応する\ascii{Kernel}実装を実行します。
 
-在所有\code{Partition}开始并发执行之前，需要外部将其输入传递给相应的\code{Arg}节点；当所有\code{Partition}完成计算后，外部再从\code{RetVal}节点中取走数据。其中，\code{Arg/RetVal}节点之间的数据时通过\code{FunctionCallFrame}完成交互的。
+すべての\code{Partition}が並列実行を開始する前に、外部がその入力を対応する\code{Arg}ノードに渡す必要があります。すべての\code{Partition}が計算を完了した後、外部は\code{RetVal}ノードからデータを取り出します。\code{Arg/RetVal}ノード間のデータは\code{FunctionCallFrame}を通じて交換されます。
 
-如果\code{PartitionGraph}之间需要跨设备交换数据，生产者将其放在\code{Send}节点，消费者通过\code{Recv}节点获取数据。其中，发送方不阻塞；接收方如果数据未到，则发生阻塞直至超时。此外，\code{Send/Recv}节点之间的数据是通过\code{Rendezvous}完成交互的。
+\code{PartitionGraph}間でデバイスを跨いでデータを交換する必要がある場合、生産者はそれを\code{Send}ノードに置き、消費者は\code{Recv}ノードを通じてデータを取得します。送信側はブロックしませんが、受信側はデータが到着していない場合、タイムアウトまでブロックします。また、\code{Send/Recv}ノード間のデータは\code{Rendezvous}を通じて交換されます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/local-graph-execution.png}
-\caption{执行图}
+\caption{グラフの実行}
  \label{fig:local-graph-execution}
 \end{figure}
 
-因此，执行图计算需要解决如下\ascii{3}个核心问题：
+したがって、グラフ計算の実行には以下の3つの核心的な問題を解決する必要があります：
 
 \begin{enum}
-  \eitem{输入/输出处理}
-  \eitem{设备间数据交换} 
-  \eitem{执行\code{PartitionGraph}}
+  \eitem{入力/出力の処理}
+  \eitem{デバイス間のデータ交換} 
+  \eitem{\code{PartitionGraph}の実行}
 \end{enum}
 
-\subsection{输入}
+\subsection{入力}
 
-在某个设备上，\code{PartitionGraph}的起始节点为\code{Arg}节点，结束节点为\code{RetVal}节点。整个过程可以看成函数调用过程，\code{Arg}用于传递函数参数，\code{RetVal}用于返回函数值。
+あるデバイス上で、\code{PartitionGraph}の開始ノードは\code{Arg}ノードであり、終了ノードは\code{RetVal}ノードです。このプロセス全体は関数呼び出しプロセスとみなすことができ、\code{Arg}は関数パラメータの受け渡しに使用され、\code{RetVal}は関数値の返却に使用されます。
 
-更确切地说，\code{Arg}完成\code{PartitionGraph}的输入，\code{RetVal}完成
-\code{PartitionGraph}的输出。对于\code{Arg}节点，其调用时序为：\code{set\_arg -> get\_arg}。其中，前者由\code{DirectSession}在启动\code{Executor}列表之前，通过调用\code{FunctionCallFrame.SetArgs(feeds)}，传递输入参数列表的值；后者由\code{Arg}的\ascii{Kernel}实现调用。
+より正確には、\code{Arg}は\code{PartitionGraph}の入力を完了し、\code{RetVal}は\code{PartitionGraph}の出力を完了します。\code{Arg}ノードの呼び出し順序は：\code{set\_arg -> get\_arg}です。前者は\code{DirectSession}が\code{Executor}リストを起動する前に、\code{FunctionCallFrame.SetArgs(feeds)}を呼び出して入力パラメータリストの値を渡します。後者は\code{Arg}の\ascii{Kernel}実装が呼び出します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1230,7 +1224,7 @@ Status DirectSession::Run(
 \end{c++}
 \end{leftbar}
 
-而\code{frame.get\_arg}则有\code{Arg}来获取，并且\code{Arg}将其输出到\code{PartitionGraph}中的第一个计算节点。
+一方、\code{frame.get\_arg}は\code{Arg}によって取得され、\code{Arg}はそれを\code{PartitionGraph}内の最初の計算ノードに出力します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1257,11 +1251,11 @@ struct ArgOp : OpKernel {
 \end{c++}
 \end{leftbar}
 
-\subsection{并发执行}
+\subsection{並列実行}
 
-经过图分裂后，运行为每个\code{Partition}启动一个\code{Executor}。为了监听所有\code{Executor}是否全部完成，创建了一个\code{ExecutorBarrier}。并且在启动所有\code{Executor}之后，调用\code{executors\_done.Wait()}阻塞，等待所有\code{Executor}完成执行。
+グラフ分割後、ランタイムは各\code{Partition}に対して\code{Executor}を起動します。すべての\code{Executor}が完了したかどうかを監視するために、\code{ExecutorBarrier}が作成されます。そして、すべての\code{Executor}を起動した後、\code{executors\_done.Wait()}ブロック操作を呼び出し、すべての\code{Executor}が実行を完了するのを待ちます。
 
-当完成一个\code{Executor}中完成，\code{ExecutorBarrier}的计算器减\ascii{1}(初始值为\code{num\_executors})，直至为\ascii{0}，将调用其完成钩子，最终触发\code{executors\_done.Notify()}。
+1つの\code{Executor}が完了すると、\code{ExecutorBarrier}のカウンターが1減少します（初期値は\code{num\_executors}）。0になると、その完了フックが呼び出され、最終的に\code{executors\_done.Notify()}がトリガーされます。
 
 \begin{leftbar}
 \begin{c++}
@@ -1318,7 +1312,7 @@ Status DirectSession::Run(
       num_executors, run_state.rendez, [&run_state](const Status& ret) {
         {
           mutex_lock l(run_state.mu_);
-          run_state.status.Update(ret);
+          run_state.status.Update(ret);
         }
         run_state.executors_done.Notify();
       });
@@ -1345,9 +1339,9 @@ Status DirectSession::Run(
 \end{c++}
 \end{leftbar}
 
-\subsection{输出}
+\subsection{出力}
 
-同理，对于\code{RetVal}节点，其调用时序为：\code{set\_ret\_val -> get\_ret\_val}。前者由\code{RetVal}完成，后者由\code{DirectSession}完成。
+同様に、\code{RetVal}ノードの呼び出し順序は：\code{set\_ret\_val -> get\_ret\_val}です。前者は\code{RetVal}によって完了し、後者は\code{DirectSession}によって完了します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1372,7 +1366,7 @@ struct RetvalOp : OpKernel {
 \end{c++}
 \end{leftbar}
 
-等所有\code{Executor}运行结束后，\code{DirectSession}便可以从\code{FunctionCallFrame}中取出所有输出值，并将其放置在\code{outputs}，并返回\ascii{Client}。
+すべての\code{Executor}の実行が終了すると、\code{DirectSession}は\code{FunctionCallFrame}からすべての出力値を取り出し、それを\code{outputs}に配置して\ascii{Client}に返すことができます。
 
 \begin{leftbar}
 \begin{c++}
@@ -1468,36 +1462,36 @@ Status DirectSession::Run(
 \end{c++}
 \end{leftbar}
 
-至此，整个\code{DirectSession.Run}解读完毕。但是，\code{Partition}中节点如何被调度执行的，\code{Partition}之间的\code{Send/Recv}是如何工作的呢？
+ここまでで、\code{DirectSession.Run}の解読が完了しました。しかし、\code{Partition}内のノードがどのようにスケジュールされて実行されるのか、\code{Partition}間の\code{Send/Recv}がどのように機能するのかという疑問が残ります。
 
-因此，在最后一公里，还要探究三件事情。
+したがって、最後のマイルでは、さらに3つのことを探究する必要があります。
 
 \begin{enum}
-  \eitem{\code{SendOp}与\code{RecvOp}的工作原理}
-  \eitem{\code{IntraProcessRendezvous}的工作原理} 
-  \eitem{\code{Executor}的调度算法}
+  \eitem{\code{SendOp}と\code{RecvOp}の動作原理}
+  \eitem{\code{IntraProcessRendezvous}の動作原理} 
+  \eitem{\code{Executor}のスケジューリングアルゴリズム}
 \end{enum}
 
-\section{设备间通信}
+\section{デバイス間通信}
 
-\code{SendOp/RecvOp}通过\code{Rendezvous}交换数据的；它实现了消息发送/接受，与具体消息传递相解耦。例如，在单进程内，\code{SendOp/RecvOp}基于\code{IntraProcessRendezvous}传递数据的；而在多进程环境中，\code{SendOp/RecvOp}则可以基于\code{GrpcRendezvous}传递数据。
+\code{SendOp/RecvOp}は\code{Rendezvous}を通じてデータを交換します。これはメッセージの送受信を実装し、具体的なメッセージ伝達から切り離されています。例えば、単一プロセス内では、\code{SendOp/RecvOp}は\code{IntraProcessRendezvous}に基づいてデータを転送します。一方、マルチプロセス環境では、\code{SendOp/RecvOp}は\code{GrpcRendezvous}に基づいてデータを転送できます。
 
-首先，探究这两个\ascii{OP}的工作原理；然后，再探究本地模式下，\code{IntraProcessRendezvous}的工作原理。
+まず、これら2つの\ascii{OP}の動作原理を探ります。次に、ローカルモードでの\code{IntraProcessRendezvous}の動作原理を探ります。
 
-\subsection{SendOp实现}
+\subsection{SendOpの実装}
 
-如\refig{local-send-recv-ops}所示，进程内的\code{Send/Recv}通过唯一的标识\code{ParsedKey}实现数据的交换。
+\refig{local-send-recv-ops}に示すように、プロセス内の\code{Send/Recv}は一意の識別子\code{ParsedKey}を通じてデータ交換を実現します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/local-send-recv-ops.png}
-\caption{进程内\code{SendOp}与\code{RecvOp}的数据交换}
+\caption{プロセス内の\code{SendOp}と\code{RecvOp}のデータ交換}
  \label{fig:local-send-recv-ops}
 \end{figure}
 
-参考\code{SendOp}的\ascii{Kernel}实现，看起来非常复杂，但是它实际上就做了一件事情。首先，它构造设备间通信的关键字\code{ParsedKey}，然后调用\code{Rendezvous.Send}操作，将上游\ascii{OP}输入到\code{SendOp}的\code{Tensor}发送到\code{Rendezvous}缓存之中，该操作是非阻塞的。
+\code{SendOp}の\ascii{Kernel}実装を参照すると、非常に複雑に見えますが、実際には1つのことだけを行っています。まず、デバイス間通信の鍵となる\code{ParsedKey}を構築し、次に\code{Rendezvous.Send}操作を呼び出して、上流の\ascii{OP}から\code{SendOp}に入力された\code{Tensor}を\code{Rendezvous}キャッシュに送信します。この操作はノンブロッキングです。
 
-其中，\code{ParsedKey}包括：发送设备，接受设备，设备全局标识，及其待发送\code{Tensor}的标识(\code{src:output\_index})组成。
+\code{ParsedKey}は、送信デバイス、受信デバイス、デバイスのグローバル識別子、および送信する\code{Tensor}の識別子（\code{src:output\_index}）で構成されます。
 
 \begin{leftbar}
 \begin{c++}
@@ -1561,11 +1555,11 @@ struct SendOp : OpKernel {
 \end{c++}
 \end{leftbar}
 
-\subsection{RecvOp实现}
+\subsection{RecvOpの実装}
 
-同理地，可以猜测\code{Recv}的\ascii{Kernel}的实现了。它首先构造\code{Rendezvous}的\code{ParsedKey}，然后调用\code{Rendezvous.RecvAsync}操作，从\code{Rendezvous}取出相应的\code{Tensor}。
+同様に、\code{Recv}の\ascii{Kernel}の実装を推測できます。まず\code{Rendezvous}の\code{ParsedKey}を構築し、次に\code{Rendezvous.RecvAsync}操作を呼び出して、\code{Rendezvous}から対応する\code{Tensor}を取得します。
 
-这是一个异步操作，当\code{Rendezvous}中数据可获取，便开始执行回调函数\code{done\_cb}，它将其得到的\code{Tensor}输出到下游\ascii{OP}。
+これは非同期操作で、\code{Rendezvous}内のデータが取得可能になると、コールバック関数\code{done\_cb}の実行が開始され、取得した\code{Tensor}を下流の\ascii{OP}に出力します。
 
 \begin{leftbar}
 \begin{c++}

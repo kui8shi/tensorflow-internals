@@ -1,16 +1,16 @@
 %%%%%%%%------------------------------------------------------------------------
-%%%% 日常所用宏包
+%%%% 日常使用マクロパッケージ
 
-%%设置行间距
+%%行間隔の設定
 \usepackage{setspace}
 
-%% 控制项目列表
+%% 箇条書きの制御
 \usepackage{enumerate}
 
-%% 多栏显示
+%% 複数列表示
 \usepackage{multicol}
 
-%% hyperref宏包，生成可定位点击的超链接，并且会生成pdf书签
+%% hyperrefパッケージ、位置指定可能なクリック可能なハイパーリンクを生成し、PDFブックマークも生成します
 \usepackage[%
     pdfstartview=FitH,%
     CJKbookmarks=true,%
@@ -24,58 +24,58 @@
     urlcolor=blue%
 ]{hyperref}
 
-%% 控制标题
+%% タイトルの制御
 \usepackage{titlesec}
 
-%% 控制表格样式
+%% テーブルスタイルの制御
 \usepackage{booktabs}
 
-%% 控制目录
+%% 目次の制御
 \usepackage{titletoc}
 
-%% 控制字体大小
+%% フォントサイズの制御
 \usepackage{type1cm}
 
-%% 首行缩进，用\noindent取消某段缩进
+%% 段落の最初の行のインデント、\noindentで特定の段落のインデントを解除
 \usepackage{indentfirst}
 
-%% 支持彩色文本、底色、文本框等
+%% カラーテキスト、背景色、テキストボックスなどをサポート
 \usepackage{color,xcolor}
 
-%% AMS LaTeX宏包
+%% AMS LaTeXパッケージ
 \usepackage{amsmath}
 \usepackage{amssymb}
 
-%% 一些特殊符号
+%% 一部の特殊記号
 % \usepackage{bbding}
 
-%% 支持引用
+%% 引用のサポート
 % \usepackage{cite}
 
-%% LaTeX一些特殊符号宏包
+%% LaTeXの一部特殊記号パッケージ
 % \usepackage{latexsym}
 
-%% 数学公式中的黑斜体
+%% 数式内の太字斜体
 % \usepackage{bm}
 
-%% 调整公式字体大小：\mathsmaller, \mathlarger
+%% 数式のフォントサイズ調整：\mathsmaller, \mathlarger
 % \usepackage{relsize}
 
-%% 生成索引
+%% インデックスの生成
 % \makeindex
 
-%%%% 基本插图方法
-%% 图形宏包
+%%%% 基本的な図の挿入方法
+%% グラフィックスパッケージ
 \usepackage{graphicx}
 \usepackage{float}
-%% 如果插入的图片没有指定扩展名，那么依次搜索下面的扩展名所对应的文件
+%% 挿入する画像の拡張子が指定されていない場合、以下の拡張子を順番に検索します
 \DeclareGraphicsExtensions{.pdf,.eps,.png,.jpg}
-%% 让 latex 从 .bb 中读取 Bounding Box 信息
+%% latexに.bbからBounding Box情報を読み取らせる
 %\DeclareGraphicsRule{.jpg}{eps}{.bb}{}
 %\DeclareGraphicsRule{.png}{eps}{.bb}{}
 %\DeclareGraphicsRule{.pdf}{eps}{.bb}{}
 
-%% 多个图形并排，参加lnotes.pdf
+%% 複数の図を並べて表示、lnotes.pdfを参照
 %\usepackage{subfig}
 \usepackage{subfigure}
 
@@ -87,94 +87,94 @@
 \usepackage[perpage,stable]{footmisc}
 
 \usepackage{longtable}
-% \begin{figure}[htbp]               %% 控制插图位置
+% \begin{figure}[htbp]               %% 図の位置を制御
 %   \setlength{\abovecaptionskip}{0pt}
 %   \setlength{\belowcaptionskip}{10pt}
-                                     %% 控制图形和上下文的距离
-%   \centering                       %% 使图形居中显示
+                                     %% 図と前後の文章との距離を制御
+%   \centering                       %% 図を中央に配置
 %   \includegraphics[width=0.8\textwidth]{CTeXLive2008.jpg}
-                                     %% 控制图形显示宽度为0.8\textwidth
-%   \caption{CTeXLive2008安装过程} \label{fig:CTeXLive2008}
-                                     %% 图形题目和交叉引用标签
+                                     %% 図の表示幅を0.8\textwidthに制御
+%   \caption{CTeXLive2008インストールプロセス} \label{fig:CTeXLive2008}
+                                     %% 図のキャプションと相互参照ラベル
 % \end{figure}
-%%%% 基本插图方法结束
+%%%% 基本的な図の挿入方法終了
 
-%%%% pgf/tikz绘图宏包设置
+%%%% pgf/tikz描画パッケージの設定
 \usepackage{pgf,tikz}
 \usetikzlibrary{shapes,automata,snakes,backgrounds,arrows}
 \usetikzlibrary{mindmap, trees,  calendar}
 \usetikzlibrary{positioning}
 \usepackage{pgf-umlsd}
-%% 可以直接在latex文档中使用graphviz/dot语言，
-%% 也可以用dot2tex工具将dot文件转换成tex文件再include进来
+%% LaTeXドキュメント内で直接graphviz/dot言語を使用できます
+%% または、dot2texツールを使用してdotファイルをtexファイルに変換してincludeすることもできます
 %% \usepackage[shell,pgf,outputdir={docgraphs/}]{dot2texi}
-%%%% pgf/tikz设置结束
+%%%% pgf/tikz設定終了
 
 
 \input{style/page}
-%%%% fancyhdr设置结束
+%%%% fancyhdr設定終了
 
-%%设置行间距离
+%%行間隔の設定
 \usepackage{framed}  
-%%%% listings宏包设置结束
+%%%% listingsパッケージ設定終了
 
-%%%% 附录设置
+%%%% 付録設定
 \usepackage[title,titletoc,header]{appendix}
-%%%% 附录设置结束
+%%%% 付録設定終了
 
-%%%% 日常宏包设置结束
+%%%% 日常パッケージ設定終了
 %%%%%%%%------------------------------------------------------------------------
 
 %%%%%%%%------------------------------------------------------------------------
-%%%% 英文字体设置结束
-%% 这里可以加入自己的英文字体设置
+%%%% 英語フォント設定終了
+%% ここに独自の英語フォント設定を追加できます
 %%%%%%%%------------------------------------------------------------------------
 
 %%%%%%%%------------------------------------------------------------------------
-%%%% 设置常用字体字号，与MS Word相对应
+%%%% よく使用するフォントサイズの設定、MS Wordに対応
 
-%% 一号, 1.4倍行距
+%% 一号, 1.4倍行間
 \newcommand{\yihao}{\fontsize{26pt}{36pt}\selectfont}
-%% 二号, 1.25倍行距
+%% 二号, 1.25倍行間
 \newcommand{\erhao}{\fontsize{22pt}{28pt}\selectfont}
-%% 小二, 单倍行距
+%% 小二, 単行間
 \newcommand{\xiaoer}{\fontsize{18pt}{18pt}\selectfont}
-%% 三号, 1.5倍行距
+%% 三号, 1.5倍行間
 \newcommand{\sanhao}{\fontsize{16pt}{24pt}\selectfont}
-%% 小三, 1.5倍行距
+%% 小三, 1.5倍行間
 \newcommand{\xiaosan}{\fontsize{15pt}{22pt}\selectfont}
-%% 四号, 1.5倍行距
+%% 四号, 1.5倍行間
 \newcommand{\sihao}{\fontsize{14pt}{21pt}\selectfont}
-%% 半四, 1.5倍行距
+%% 半四, 1.5倍行間
 \newcommand{\bansi}{\fontsize{13pt}{19.5pt}\selectfont}
-%% 小四, 1.5倍行距
+%% 小四, 1.5倍行間
 \newcommand{\xiaosi}{\fontsize{12pt}{18pt}\selectfont}
-%% 大五, 单倍行距
+%% 大五, 単行間
 \newcommand{\dawu}{\fontsize{11pt}{11pt}\selectfont}
-%% 五号, 单倍行距
+%% 五号, 単行間
 \newcommand{\wuhao}{\fontsize{10.5pt}{10.5pt}\selectfont}
 %%%%%%%%------------------------------------------------------------------------
 
 %%%%%%%%------------------------------------------------------------------------
-%%%% 一些个性设置
+%%%% いくつかのカスタム設定
 
-%% 设定页码方式，包括arabic、roman等方式
+%% ページ番号の方式を設定、arabicやromanなどの方式を含む
 %% \pagenumbering{arabic}
 
-%% 有时LaTeX无从断行，产生overfull的错误，这条命令降低LaTeX断行标准
+%% LaTeXが改行できない場合にoverfullエラーが発生することがあります。このコマンドはLaTeXの改行基準を下げます
 %% \sloppy
 
-%% 设定目录显示深度\tableofcontents
+%% 目次の表示深度を設定\tableofcontents
 %% \setcounter{tocdepth}{2}
-%% 设定\listoftables显示深度
+%% \listoftablesの表示深度を設定
 %% \setcounter{lotdepth}{2}
-%% 设定\listoffigures显示深度
+%% \listoffiguresの表示深度を設定
 %% \setcounter{lofdepth}{2}
 
-%% 中文破折号，据说来自清华模板
+%% 日本語のダッシュ、清華大学のテンプレートから来たとされています
 \newcommand{\pozhehao}{\kern0.3ex\rule[0.8ex]{2em}{0.1ex}\kern0.3ex}
 
-%% 设定itemize环境item的符号
+%% itemize環境のitemの記号を設定
 \renewcommand{\labelitemi}{$\bullet$}
 
 %\makeatletter
@@ -182,17 +182,17 @@
 %\makeatother
 
 \input{style/command}
-%% 设定正文字体大小
+%% 本文のフォントサイズを設定
 % \renewcommand{\normalsize}{\sihao}
 
-%%%% 个性设置结束
+%%%% カスタム設定終了
 %%%%%%%%------------------------------------------------------------------------
 
 
 %%%%%%%%------------------------------------------------------------------------
-%%%% bibtex设置
+%%%% bibtex設定
 
-%% 设定参考文献显示风格
+%% 参考文献の表示スタイルを設定
 
-%%%% bibtex设置结束
+%%%% bibtex設定終了
 %%%%%%%%------------------------------------------------------------------------

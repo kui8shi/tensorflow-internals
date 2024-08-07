@@ -1,124 +1,111 @@
 %%%%%%%%------------------------------------------------------------------------
-%%%% xeCJK相关宏包
+%%%% 日本語用xeCJKパッケージ設定
 
 \usepackage{xltxtra,fontspec,xunicode}
 
 %% \CJKsetecglue{\hskip 0.15em plus 0.05em minus 0.05em}
-%% slanfont: 允许斜体
-%% boldfont: 允许粗体
-%% CJKnormalspaces: 仅忽略汉字之间的空白,但保留中英文之间的空白。 
-%% CJKchecksingle: 避免单个汉字单独占一行。
+%% slantfont: 斜体を許可
+%% boldfont: 太字を許可
+%% CJKnormalspaces: 日本語文字間のスペースを無視し、日本語と英語の間のスペースは保持。
+%% CJKchecksingle: 単一の日本語文字が行を占めるのを避ける。
 \usepackage[slantfont, boldfont]{xeCJK} 
-% \usepackage{ctex}
 
-%% 针对中文进行断行
-\XeTeXlinebreaklocale "zh"             
+%% 日本語の改行を行う
+\XeTeXlinebreaklocale "ja"             
 
-%% 给予TeX断行一定自由度
+%% TeXの改行に一定の自由度を与える
 \XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt
 
-%%%% xeCJK设置结束                                       
+%%%% xeCJK設定終了
 %%%%%%%%------------------------------------------------------------------------
 
 %%%%%%%%------------------------------------------------------------------------
-%%%% xeCJK字体设置
+%%%% 日本語フォント設定
 
-%% 设置中文标点样式，支持quanjiao、banjiao、kaiming等多种方式
-\punctstyle{quanjiao}                                        
+%% 句読点スタイルを設定
+\punctstyle{plain}                                        
                                                      
-%% 设置缺省中文字体
-\setCJKmainfont[BoldFont={Adobe Heiti Std}, ItalicFont={Adobe Kaiti Std}]{Adobe Song Std}   %  FZBaoSongZ04
-%% 设置中文无衬线字体
-\setCJKsansfont[BoldFont={Adobe Heiti Std}, ItalicFont={Adobe Kaiti Std}]{Adobe Kaiti Std}  
-%% 设置等宽字体
-\setCJKmonofont{Adobe Heiti Std}                            
-%\setCJKmonofont{Monaco}                            
+%% デフォルトの日本語フォントを設定
+\setCJKmainfont[BoldFont={Noto Sans CJK JP}, ItalicFont={Noto Serif CJK JP}]{Noto Serif CJK JP}
+%% 日本語のサンセリフフォントを設定
+\setCJKsansfont[BoldFont={Noto Sans CJK JP}, ItalicFont={Noto Serif CJK JP}]{Noto Sans CJK JP}
+%% 等幅フォントを設定
+\setCJKmonofont{Noto Sans Mono}
 
-%% 英文衬线字体
-\setmainfont{Lucida Bright}                                  
-%% 英文等宽字体
-%\setmonofont{Courier}
-\setmonofont{Monaco}                             
-%\setmonofont{Consolas}                              
-%% 英文无衬线字体
-\setsansfont{Optima}                                   
+%% 英語のセリフフォント
+\setmainfont{Lucida Bright}
+%% 英語の等幅フォント
+\setmonofont{Monaco}
+%% 英語のサンセリフフォント
+\setsansfont{Optima}
 
-%% 定义新字体
-\setCJKfamilyfont{song}{Adobe Song Std}                     
-\setCJKfamilyfont{kai}{Adobe Kaiti Std}
-\setCJKfamilyfont{hei}{Adobe Heiti Std}
-\setCJKfamilyfont{fangsong}{Adobe Song Std}
-\setCJKfamilyfont{lisu}{LiShu}
-\setCJKfamilyfont{youyuan}{Adobe Kaiti Std}
+%% 新しいフォントを定義
+\setCJKfamilyfont{mincho}{Noto Serif CJK JP}
+\setCJKfamilyfont{gothic}{Noto Sans CJK JP}
+\setCJKfamilyfont{maru}{M+ 1c}
 
-%%自定义英文字体
+%%カスタム英語フォント
 \newfontfamily\couriernew{Lucida Grande}
 \newfontfamily\optima{Optima}
 \newfontfamily\lucida{Lucida Bright}
 
 \newcommand{\ascii}[1]{{\sffamily #1}}
 \newcommand{\speak}[1]{{\itshape #1}}
-\renewcommand{\emph}[1]{{\hei #1}}
+\renewcommand{\emph}[1]{{\gothic #1}}
 
-%% 自定义宋体
-\newcommand{\song}{\CJKfamily{song}}                       
-%% 自定义楷体
-\newcommand{\kai}{\CJKfamily{kai}}                         
-%% 自定义黑体
-\newcommand{\hei}{\CJKfamily{hei}}                         
-%% 自定义仿宋体
-\newcommand{\fangsong}{\CJKfamily{fangsong}}               
-%% 自定义隶书
-\newcommand{\lisu}{\CJKfamily{lisu}}                       
-%% 自定义幼圆
-\newcommand{\youyuan}{\CJKfamily{youyuan}}                 
+%% カスタム明朝体
+\newcommand{\mincho}{\CJKfamily{mincho}}
+%% カスタムゴシック体
+\newcommand{\gothic}{\CJKfamily{gothic}}
+%% カスタム丸ゴシック体
+\newcommand{\maru}{\CJKfamily{maru}}
 
-%%%% xeCJK字体设置结束
+%%%% 日本語フォント設定終了
 %%%%%%%%------------------------------------------------------------------------
 
 %%%%%%%%------------------------------------------------------------------------
-%%%% 一些关于中文文档的重定义
+%%%% 日本語文書に関するいくつかの再定義
 
-%% 数学公式定理的重定义
+%% 数学公式定理の再定義
 
 \newtheorem{example}{例}[section]                                   
-\newtheorem{algorithm}{算法}
-%% 按section编号
+\newtheorem{algorithm}{アルゴリズム}
+%% セクション別に番号付け
 \newtheorem{theorem}{定理}[section]                         
-\newtheorem{definition}{定义}
+\newtheorem{definition}{定義}
 \newtheorem{axiom}{公理}
-\newtheorem{property}{性质}
-\newtheorem{proposition}{命题}
-\newtheorem{lemma}{引理}
-\newtheorem{corollary}{推论}
+\newtheorem{property}{性質}
+\newtheorem{proposition}{命題}
+\newtheorem{lemma}{補題}
+\newtheorem{corollary}{系}
 \newtheorem{condition}{条件}
-\newtheorem{conclusion}{结论}
-\newtheorem{assumption}{假设}
+\newtheorem{conclusion}{結論}
+\newtheorem{assumption}{仮定}
 
-\newtheorem{principle}{原则}[section]
-\newtheorem{regulation}{规则}[section]
-\newtheorem{advise}{建议}[section]
+\newtheorem{principle}{原則}[section]
+\newtheorem{regulation}{規則}[section]
+\newtheorem{advise}{提案}[section]
 \newtheorem{concept}{概念}[section]
 
 \usepackage{titlesec}
 
 \renewcommand{\partname}{}
-\renewcommand{\thepart}{第\Roman{part}部分}
+\renewcommand{\thepart}{第\Roman{part}部}
 
-%% 章节等名称重定义
-\renewcommand{\contentsname}{目录}
-%\renewcommand{\abstractname}{摘要}
+%% 章節などの名前を再定義
+\renewcommand{\contentsname}{目次}
+\renewcommand{\abstractname}{要旨}
 \renewcommand{\indexname}{索引}
-\renewcommand{\listfigurename}{插图目录}
-\renewcommand{\listtablename}{表格目录}
-\renewcommand{\figurename}{图}
+\renewcommand{\listfigurename}{図目次}
+\renewcommand{\listtablename}{表目次}
+\renewcommand{\figurename}{図}
 \renewcommand{\tablename}{表}
-\renewcommand{\appendixname}{附录}
-\renewcommand{\appendixpagename}{附录}
-\renewcommand{\appendixtocname}{附录}
-%\renewcommand\refname{参考文献} 
+\renewcommand{\appendixname}{付録}
+\renewcommand{\appendixpagename}{付録}
+\renewcommand{\appendixtocname}{付録}
+\renewcommand\refname{参考文献}
 
-%%设置内容环境
+%%本文環境を設定
 \newenvironment{content}{%
   \setlength{\parskip}{0.5\baselineskip}
   \begin{spacing}{1.5}
@@ -128,10 +115,10 @@
   \vskip -0.5\baselineskip
 }
 
-% 插入小段故事的语法：
+% 短い物語を挿入する構文：
 % \begin{story}
 %   \begin{center}
-%     \inlinetitle{分水岭}
+%     \inlinetitle{タイトル}
 %   \end{center}
 % \end{story}
 \newenvironment{story}
@@ -146,17 +133,17 @@
   \vskip -0.5\baselineskip
 }
 
-%% 设置chapter、section与subsection的格式
-%\titleformat{\chapter}[display]{\flushright\yihao}{\thechapter{}}{1em}{\textbf}
-\titleformat{\section}[block]{\flushleft\sanhao}{\optima{\thesection}}{1em}{\textbf}
-\titleformat{\subsection}{\sihao}{\optima{\thesubsection}}{0.5em}{\textbf}
-\titleformat{\subsubsection}{\xiaosi}{\thesubsubsection}{0.5em}{\textbf}
+%% chapter、section、subsectionのフォーマットを設定
+\titleformat{\chapter}[display]{\flushright\huge\gothic}{\thechapter}{1em}{\textbf}
+\titleformat{\section}[block]{\flushleft\Large\gothic}{\thesection}{1em}{\textbf}
+\titleformat{\subsection}{\large\gothic}{\thesubsection}{0.5em}{\textbf}
+\titleformat{\subsubsection}{\normalsize\gothic}{\thesubsubsection}{0.5em}{\textbf}
 
-%\titlespacing{\chapter}{0pt}{0pt}{-\baselineskip}
-\titlespacing{\section}{0pt}{0pt}{0\baselineskip}
-\titlespacing{\subsection}{0pt}{0.5\baselineskip}{0\baselineskip}
+\titlespacing{\chapter}{0pt}{50pt}{40pt}
+\titlespacing{\section}{0pt}{20pt}{10pt}
+\titlespacing{\subsection}{0pt}{15pt}{10pt}
 
-%% 设置章格式
+%% 章のフォーマットを設定
 \usepackage{quotchap}
 
 \renewcommand\chapterheadstartvskip{
@@ -168,22 +155,22 @@
 }
 
 \usepackage{helvet}
-\renewcommand\sectfont{\rmfamily\bfseries}
+\renewcommand\sectfont{\gothic\bfseries}
 
-\newcommand\refig[1]{{\itshape \figurename\ascii{\ref{fig:#1}（第\pageref{fig:#1}页）}}}
-\newcommand\reftbl[1]{{\itshape \tablename\ascii{\ref{tbl:#1}（第\pageref{tbl:#1}页）}}}
+\newcommand\refig[1]{{\itshape \figurename\ascii{\ref{fig:#1}（\pageref{fig:#1}ページ）}}}
+\newcommand\reftbl[1]{{\itshape \tablename\ascii{\ref{tbl:#1}（\pageref{tbl:#1}ページ）}}}
 
 \renewcommand{\footnoterule}{\vspace*{3pt}%
   \hrule width 0.382\textwidth height 0.4pt \vspace*{2.6pt}}
 
-% Remark
-\newenvironment{remark}{\par\vskip10pt\footnotesize\itshape % Vertical white space above the remark and smaller font size
+% 備考
+\newenvironment{remark}{\par\vskip10pt\footnotesize\itshape} % 備考の上部の垂直方向の空白とより小さいフォントサイズ
 \begin{list}{}{
-\leftmargin=35pt % Indentation on the left
-\rightmargin=25pt}\item\ignorespaces % Indentation on the right
+\leftmargin=35pt % 左側のインデント
+\rightmargin=25pt}\item\ignorespaces % 右側のインデント
 \makebox[-2.5pt]{\begin{tikzpicture}[overlay]
 \node[draw=red!60,line width=1pt,circle,fill=red!25,font=\sffamily\bfseries,inner sep=2pt,outer sep=0pt] at (-15pt,0pt){\textcolor{red}{R}};\end{tikzpicture}}
 \advance\baselineskip -1pt}{\end{list}\vskip5pt}
 
-%%%% 中文重定义结束
+%%%% 日本語設定終了
 %%%%%%%%------------------------------------------------------------------------

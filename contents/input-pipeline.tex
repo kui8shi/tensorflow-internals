@@ -3,32 +3,33 @@
 \qauthor{\ascii{- Martin Flower}}
 \end{savequote}
 
-\chapter{数据加载} 
+\chapter{データ読み込み} 
 \label{ch:input-pipeline}
 
 \begin{content}
 
-一般地，\ascii{TensorFlow}输入样本数据到训练/推理子图中执行运算，存在三种读取样本数据的方法：
+一般的に、\ascii{TensorFlow}は学習/推論サブグラフにサンプルデータを入力して演算を実行します。サンプルデータを読み込む方法には3つあります：
 
 \begin{enum}
-  \eitem{数据注入：通过字典\code{feed\_dict}将数据传递给\code{Session.run}，以替代\code{Placeholder}的输出\code{Tensor}的值；}
-  \eitem{数据管道：通过构造输入子图，并发地从文件中读取样本数据；}
-  \eitem{数据预加载：对于小数据集，使用\code{Const}或\code{Variable}直接持有数据。}
+  \eitem{データ注入：\code{feed\_dict}辞書を通じてデータを\code{Session.run}に渡し、\code{Placeholder}の出力\code{Tensor}の値を置き換えます。}
+  \eitem{データパイプライン：入力サブグラフを構築し、並行してファイルからサンプルデータを読み込みます。}
+  \eitem{データ事前読み込み：小規模なデータセットの場合、\code{Const}または\code{Variable}を使用して直接データを保持します。}
 \end{enum}
 
-基于大型数据集的训练或推理任务，样本数据的输入常常使用数据的管道模式，确保高的吞吐率，提高训练/推理的执行效率。该过程使用队列实现输入子图与训练/推理子图之间的数据交互与异步控制。
+大規模なデータセットに基づく学習または推論タスクでは、サンプルデータの入力には通常データパイプライン方式が使用され、高いスループットを確保し、学習/推論の実行効率を向上させます。このプロセスではキューを使用して、入力サブグラフと学習/推論サブグラフの間のデータ相互作用と非同期制御を実現します。
 
-本章将重点论述数据加载的\ascii{Pipeline}的工作机制，并深入了解\ascii{TensorFlow}并发执行的协调机制，及其队列在并发执行中扮演的角色。
+本章では、データ読み込みのパイプラインの仕組みに焦点を当て、\ascii{TensorFlow}の並行実行の調整メカニズムと、並行実行におけるキューの役割について詳しく説明します。
 
 \end{content}
 
-\section{数据注入}
+\section{データ注入}
 
 \begin{content}
 
-数据注入是最为常见的数据加载的方法，它通过字典\code{feed\_dict}将样本数据传递给\code{Session.run}，或者\code{Tensor.eval}方法；其中，字典的关键字为\code{Tensor}的名字，值为样本数据。
+データ注入は最も一般的なデータ読み込み方法です。\code{feed\_dict}辞書を通じてサンプルデータを\code{Session.run}または\code{Tensor.eval}メソッドに渡します。辞書のキーは\code{Tensor}の名前で、値はサンプルデータです。
 
-\ascii{TensorFlow}将按照字典中\code{Tensor}的名字，将样本数据替换该\code{Tensor}的值。
+\ascii{TensorFlow}は辞書内の\code{Tensor}の名前に従って、サンプルデータをその\code{Tensor}の値に置き換えます。
+
 
 \begin{leftbar}
 \begin{python}
@@ -41,15 +42,16 @@ with tf.Session():
 \end{python}
 \end{leftbar}
 
-一般地，\code{feed\_dict}可以替代任何\code{Tensor}的值。但是，常常使用\code{Placeholder}表示其输出\code{Tensor}的值未确定，待使用\code{feed\_dict}替代。
+一般的に、\code{feed\_dict}は任意の\code{Tensor}の値を置き換えることができます。しかし、通常は\code{Placeholder}を使用して、その出力\code{Tensor}の値が未確定であり、\code{feed\_dict}で置き換えられることを示します。
 
 \end{content}
 
-\section{数据预加载}
+\section{データ事前読み込み}
 
 \begin{content}
 
-可以使用\code{Const}或\code{Variable}直接持有数据，将数据预加载至内存中，提升执行效率。该方法仅适用于小数据集，当样本数据集比较大时，内存资源消耗非常可观。这里以\ascii{mnist}数据集为例，讲解数据预加载的使用方法。
+\code{Const}または\code{Variable}を使用してデータを直接保持し、データをメモリに事前に読み込んで実行効率を向上させることができます。この方法は小規模なデータセットにのみ適しており、サンプルデータセットが大きい場合、メモリリソースの消費が非常に顕著になります。ここでは\ascii{mnist}データセットを例に、データ事前読み込みの使用方法を説明します。
+
 
 \begin{leftbar}
 \begin{python}
@@ -59,9 +61,10 @@ data_sets = input_data.read_data_sets('/tmp/mnist/data')
 \end{python}
 \end{leftbar}
 
-\subsection{使用Const}
+\subsection{Constの使用}
 
-由于\code{Const OP}输出\code{Tensor}的值是直接内联在计算图中。如果该\code{Const OP}在图中被使用多次，可能造成重复的冗余数据，白白浪费了不必要的内存资源。
+\code{Const OP}の出力\code{Tensor}の値は計算グラフに直接組み込まれます。この\code{Const OP}がグラフ内で複数回使用される場合、重複した冗長データが生成され、不必要なメモリリソースが無駄に消費される可能性があります。
+
 
 \begin{leftbar}
 \begin{python}
@@ -71,15 +74,16 @@ with tf.name_scope('input'):
 \end{python}
 \end{leftbar}
 
-\subsection{使用Variable}
+\subsection{Variableの使用}
 
-可以使用不可变、非训练的\code{Variable}替代\code{Const}。一旦初始化了该类型的\code{Variable}，便不能改变其值，从而具备\code{Const}的属性。
+不変かつ学習不要の\code{Variable}を使用して\code{Const}を置き換えることができます。この種類の\code{Variable}が初期化されると、その値を変更できなくなり、\code{Const}の属性を持つようになります。
 
-用于数据预加载的\code{Variable}与用于训练的\code{Variable}之间存在差异，它将置位\code{trainable=False}，系统不会将其归类于\code{GraphKeys.TRAINABLE\_VARIABLES}集合中。在训练过程中，系统不会对其实施更新操作。
+データ事前読み込みに使用される\code{Variable}と学習に使用される\code{Variable}には違いがあります。\code{trainable=False}が設定され、システムは\code{GraphKeys.TRAINABLE\_VARIABLES}集合に分類しません。学習過程で、システムはそれに対して更新操作を実行しません。
 
-另外，在构造该类型的\code{Variable}时，还将设置\code{collections=[]}，系统不会将其归类于\code{GraphKeys.GLOBAL\_VARIABLES}集合中。在训练过程中，系统不会对其实施\ascii{Checkpoint}操作。
+また、この種類の\code{Variable}を構築する際、\code{collections=[]}も設定され、システムは\code{GraphKeys.GLOBAL\_VARIABLES}集合に分類しません。学習過程で、システムはそれに対してチェックポイント操作を実行しません。
 
-为了创建不可变、非训练的\code{Variable}，此处写了一个简单的工厂方法。
+不変かつ学習不要の\code{Variable}を作成するために、ここで簡単なファクトリメソッドを書きました。
+
 
 \begin{leftbar}
 \begin{python}
@@ -91,7 +95,8 @@ def immutable_variable(initial_value):
 \end{python}
 \end{leftbar}
 
-\code{immutable\_variable}使用传递进来的\code{initial\_value}构造\code{Placeholder}的类型与形状信息，并以此作为\code{Variable}的初始值。可以使用\code{immutable\_variable}创建不可变的，用于数据预加载的\code{Variable}。
+\code{immutable\_variable}は渡された\code{initial\_value}を使用して\code{Placeholder}の型と形状情報を構築し、これを\code{Variable}の初期値として使用します。\code{immutable\_variable}を使用して、データ事前読み込み用の不変の\code{Variable}を作成できます。
+
 
 \begin{leftbar}
 \begin{python}
@@ -101,9 +106,10 @@ with tf.name_scope('input'):
 \end{python}
 \end{leftbar}
 
-\subsection{批次预加载}
+\subsection{バッチ事前読み込み}
 
-可以构建\ascii{Pipeline}，结合数据预加载机制，实现样本的批式加载。首先，使用\code{tf.train.slice\_input\_producer}在每个\ascii{epoch}开始时将整个样本空间随机化，每次从样本集合中随机采样获取一个训练样本。
+パイプラインを構築し、データ事前読み込みの仕組みと組み合わせて、サンプルのバッチ読み込みを実現できます。まず、\code{tf.train.slice\_input\_producer}を使用して、各エポックの開始時に全サンプル空間をランダム化し、サンプルセットからランダムに1つの学習サンプルを採取します。
+
 
 \begin{leftbar}
 \begin{python}
@@ -113,8 +119,9 @@ def one(input_xs, input_ys, num_epochs)
 \end{python}
 \end{leftbar}
 
-然后，使用\code{tf.train.batch}每次得到一个批次的样本数据。
+次に、\code{tf.train.batch}を使用して、毎回1バッチのサンプルデータを取得します。
 
+  
 \begin{leftbar}
 \begin{python}
 def batch(x, y, batch_size)
@@ -123,7 +130,8 @@ def batch(x, y, batch_size)
 \end{python}
 \end{leftbar}
 
-对于使用\code{Variable}预加载数据，可以如下方式获取一个批次的样本数据。
+\code{Variable}を使用してデータを事前に読み込む場合、以下の方法で1バッチのサンプルデータを取得できます。
+
 
 \begin{leftbar}
 \begin{python}
@@ -136,27 +144,28 @@ with tf.name_scope('input'):
 \end{python}
 \end{leftbar}
 
-事实上，\code{tf.train.slice\_input\_producer}将构造样本队列，通过\code{QueueRunner}并发地通过执行\code{Enqueue}操作，将训练样本逐一加入到样本队列中去。在每次迭代训练启动时，通过调用\code{DequeueMany}一次性获取\code{batch\_size}个的批次样本数据到训练子图中去。
+実際、\code{tf.train.slice\_input\_producer}はサンプルキューを構築し、\code{QueueRunner}を通じて並行的に\code{Enqueue}操作を実行し、学習サンプルを1つずつサンプルキューに追加します。各イテレーション学習の開始時に、\code{DequeueMany}を呼び出して\code{batch\_size}個のバッチサンプルデータを学習サブグラフに一度に取得します。
 
 \end{content}
 
-\section{数据管道}
+\section{データパイプライン}
 
 \begin{content}
 
-一个典型的数据加载的\ascii{Pipeline(Input Pipeline)}，包括如下几个重要数据处理实体：
+典型的なデータ読み込みのパイプラインには、以下のいくつかの重要なデータ処理要素が含まれます：
 
 \begin{enum}
-  \eitem{文件名称队列：将文件名称的列表加入到该队列中；}
-  \eitem{读取器：从文件名称队列中读取文件名(出队)；并根据数据格式选择相应的文件读取器，解析文件的记录；}
-  \eitem{解码器：解码文件记录，并转换为数据样本；}
-  \eitem{预处理器：对数据样本进行预处理，包括正则化，白化等；}
-  \eitem{样本队列：将处理后的样本数据加入到样本队列中。}
+  \eitem{ファイル名キュー：ファイル名リストをこのキューに追加します。}
+  \eitem{データ読み込み器：ファイル名キューからファイル名を読み取り（取り出し）、データ形式に応じて適切なファイル読み込み器を選択し、ファイルの記録を解析します。}
+  \eitem{デコーダー：ファイル記録をデコードし、データサンプルに変換します。}
+  \eitem{前処理器：データサンプルに対して前処理を行います（正規化、白色化など）。}
+  \eitem{サンプルキュー：処理済みのサンプルデータをサンプルキューに追加します。}
 \end{enum}
 
-以\ascii{mnist}数据集为例，假如数据格式为\code{TFRecord}。首先，使用\code{tf.train.string\_input\_producer}构造了一个持有文件名列表的\code{FIFOQueue}队列(通过执行\code{EnqueueMany OP})，并且在每个\ascii{epoch}周期内实现文件名列表的随机化。
+\ascii{mnist}データセットを例に、データ形式が\code{TFRecord}であると仮定します。まず、\code{tf.train.string\_input\_producer}を使用して、ファイル名リストを保持する\code{FIFOQueue}キューを構築し（\code{EnqueueMany OP}を実行して）、各エポック内でファイル名リストをランダム化します。
 
-\subsection{构建文件名队列}
+\subsection{ファイル名キューの構築}
+
 
 \begin{leftbar}
 \begin{python}
@@ -166,9 +175,9 @@ def input_producer(num_epochs):
 \end{python}
 \end{leftbar}
 
-构造好了文件名队列之后，使用\code{tf.TFRecordReader}从文件名队列中获取文件名(出队，通过调用执行\code{Dequeue OP})，并从文件中读取样本记录(\ascii{Record})。然后，使用\code{tf.parse\_single\_example}解析出样本数据。
+ファイル名キューを構築した後、\code{tf.TFRecordReader}を使用してファイル名キューからファイル名を取得し（取り出し、\code{Dequeue OP}を呼び出して実行）、ファイルからサンプル記録を読み取ります。次に、\code{tf.parse\_single\_example}を使用してサンプルデータを解析します。
 
-\subsection{读取器}
+\subsection{データ読み込み}
 
 \begin{leftbar}
 \begin{python}
@@ -185,9 +194,9 @@ def parse_record(filename_queue):
 \end{python}
 \end{leftbar}
 
-\subsection{解码器}
+\subsection{デコード}
 
-接着对样本数据进行解码，及其可选的预处理过程，最终得到训练样本。
+次に、サンプルデータをデコードし、オプションの前処理プロセスを行い、最終的に学習サンプルを取得します。
 
 \begin{leftbar}
 \begin{python}
@@ -208,9 +217,10 @@ def one_example(features):
 \end{python}
 \end{leftbar}
 
-\subsection{构建样本队列}
+\subsection{サンプルキューの構築}
 
-可以使用\code{tf.train.shuffle\_batch}构建一个\code{RandomShuffleQueue}队列，将解析后的训练样本追加在该队列中(通过执行\code{Enqueue OP})；当迭代执行启动时，将批次获取\code{batch\_size}个样本数据(通过执行\code{DequeueMany OP})。
+\code{tf.train.shuffle\_batch}を使用して\code{RandomShuffleQueue}キューを構築し、解析後の学習サンプルをこのキューに追加できます（\code{Enqueue OP}を実行して）。イテレーション実行が開始されると、\code{batch\_size}個のサンプルデータをバッチで取得します（\code{DequeueMany OP}を実行して）。
+
 
 \begin{leftbar}
 \begin{python}
@@ -226,9 +236,10 @@ def shuffle_batch(image, label, batch_size):
 \end{python}
 \end{leftbar}
 
-\subsection{输入子图}
+\subsection{入力サブグラフ}
 
-最后，将整个程序传接起来便构造了一个输入子图。
+最後に、プログラム全体をつなぎ合わせると、入力サブグラフが構築されます。
+
 
 \begin{leftbar}
 \begin{python}
@@ -243,47 +254,48 @@ def inputs(num_epochs, batch_size):
 
 \end{content}
 
-\section{数据协同}
+\section{データ協調}
 
 \begin{content}
 
-事实上，数据加载的\ascii{Pipeline}其本质是构造一个输入子图，实现并发\ascii{IO}操作，使得训练过程不会因操作\ascii{IO}而阻塞，从而实现\ascii{GPU}的利用率的提升。
+実際、データ読み込みのパイプラインの本質は入力サブグラフを構築し、並行I/O操作を実現することで、学習プロセスがI/O操作によってブロックされないようにし、GPUの利用率を向上させることです。
 
-对于输入子图，数据流的处理划分为若干阶段(\ascii{Stage})，每个阶段完成特定的数据处理功能；各阶段之间以队列为媒介，完成数据的协同和交互。
+入力サブグラフでは、データフローの処理がいくつかの段階に分割され、各段階が特定のデータ処理機能を完了します。各段階間はキューを媒介として、データの協調と相互作用を完了します。
 
-如下图所示，描述了一个典型的神经网络的训练模式。整个流水线由两个队列为媒介，将其划分为3个阶段。
+以下の図は、典型的なニューラルネットワークの学習モードを示しています。全体のパイプラインは2つのキューを媒介として、3つの段階に分割されています。
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/tf-input-pipeline.png}
-\caption{模型训练工作流}
+\caption{モデル学習のワークフロー}
  \label{fig:tf-input-pipeline}
 \end{figure}
 
-\subsection{阶段1}
+\subsection{ステップ1}
 
-\code{string\_input\_producer}构造了一个\code{FIFOQueue}的队列，它是一个有状态的\ascii{OP}。根据\code{shuffle}选项，在每个\ascii{epoch}开始时，随机生成文件列表，并将其一同追加至队列之中。
+\code{string\_input\_producer}は\code{FIFOQueue}のキューを構築します。これは状態を持つ操作です。\code{shuffle}オプションに基づいて、各エポックの開始時にランダムにファイルリストを生成し、それらを一緒にキューに追加します。
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/tf-input-pipeline-stage-1.png}
-\caption{阶段1：模型训练工作流}
+\caption{段階1：モデル学習のワークフロー}
  \label{fig:tf-input-pipeline-stage-1}
 \end{figure}
 
-\subsubsection{随机化}
+\subsubsection{ランダム化}
 
-首先，执行名为\code{filenames}的\code{Const OP}，再经过\code{RandomShuffle}将文件名称列表随机化。
+まず、\code{filenames}という名前の\code{Const OP}を実行し、その後\code{RandomShuffle}を通じてファイル名リストをランダム化します。
 
-\subsubsection{Epoch控制}
+\subsubsection{エポック制御}
 
-为了实现\ascii{epoch}的计数，实现巧妙地设计了一个名为\code{epochs}的本地变量。其中，本地变量仅对本进程的多轮Step之间共享数据，并且不会被训练子图实施更新。
+エポックのカウントを実現するために、巧妙に設計された\code{epochs}というローカル変数が使用されています。このローカル変数は、同一プロセスの複数のステップ間でのみデータを共有し、学習サブグラフによって更新されることはありません。
 
-在\code{Session.run}之前，系统会执行本地变量列表的初始化，将名为\code{epochs}的\code{Variable}实施零初始化。
+\code{Session.run}の前に、システムはローカル変数リストの初期化を実行し、\code{epochs}という名前の\code{Variable}をゼロに初期化します。
 
-\ascii{epoch}的计数功能由\code{CountUpTo}完成，它的工作原理类似于\ascii{C++}的\code{i++}。它持有\code{Variable}的引用，及其上限参数\code{limit}。每经过一轮\ascii{epoch}，使其\code{Variable}自增1，直至达到\code{num\_epochs}数目。
+エポックのカウント機能は\code{CountUpTo}によって完了します。これは\ascii{C++}の\code{i++}に似た動作をします。\code{Variable}の参照と上限パラメータ\code{limit}を保持します。1回のエポックが経過するごとに\code{Variable}を1増加させ、\code{num\_epochs}に達するまで続けます。
 
-其中，当\ascii{epoch}数到达\code{num\_epochs}时，\code{CountUpTo}将自动抛出\code{OutOfRangeError}异常。详细实现可以参考\code{CountUpToOp}的\ascii{Kernel}实现。
+エポック数が\code{num\_epochs}に達すると、\code{CountUpTo}は自動的に\code{OutOfRangeError}例外を投げます。詳細な実装は\code{CountUpToOp}のカーネル実装を参照してください。
+
 
 \begin{leftbar}
 \begin{c++}
@@ -326,64 +338,66 @@ private:
 \end{c++}
 \end{leftbar}
 
-\subsubsection{入队操作}
+\subsubsection{エンキュー操作}
 
-事实上，将文件名列表追加到队列中，执行的是\code{EnqueueMany}，类似于\code{Assign}修改\code{Variable}的值，\code{EnqueueMany}也是一个有状态的\ascii{OP}，它持有队列的句柄，直接完成队列的状态更新。
+実際には、ファイル名リストをキューに追加する操作は\code{EnqueueMany}を実行します。\code{Assign}が\code{Variable}の値を修正するのと同様に、\code{EnqueueMany}も状態を持つ操作で、キューのハンドルを保持し、キューの状態を直接更新します。
 
-在此处，\code{EnqueueMany}将被\code{Session.run}执行，系统反向遍历，找到依赖的\code{Identity}，发现控制依赖于\code{CountUpTo}，此时会启动一次\ascii{epoch}计数，直至到达\code{num\_epoch}数目抛出\code{OutOfRangeError}异常。同时，\code{Identity}依赖于\code{RandomShuffle}，以便得到随机化了的文件名列表。
+ここで、\code{EnqueueMany}は\code{Session.run}によって実行されます。システムは逆方向にトラバースし、依存する\code{Identity}を見つけ、\code{CountUpTo}に制御依存していることを発見します。この時点でエポックカウントが開始され、\code{num\_epoch}に達するまで続き、\code{OutOfRangeError}例外が投げられます。同時に、\code{Identity}は\code{RandomShuffle}に依存し、ランダム化されたファイル名リストを取得します。
 
 \subsubsection{QueueRunner}
 
-另外，在调用\code{tf.train.string\_input\_producer}时，将往计算图中注册一个特殊的\ascii{OP}：\code{QueueRunner}，并且将其添加到\code{GraphKeys.QUEUE\_RUNNERS}集合中。并且，一个\code{QueueRunner}持有一个或多个\code{Enqueue, EnqueueMany}类型的\ascii{OP}。
+また、\code{tf.train.string\_input\_producer}を呼び出す際、計算グラフに特別な操作である\code{QueueRunner}が登録され、\code{GraphKeys.QUEUE\_RUNNERS}集合に追加されます。\code{QueueRunner}は1つ以上の\code{Enqueue}、\code{EnqueueMany}タイプの操作を保持します。
 
-\subsection{阶段2}
+\subsection{ステップ2}
 
-\code{Reader}从文件名队列中按照\ascii{FIFO}的顺序获取文件名，并按照文件名读取文件记录，成功后对该记录进行解码和预处理，将其转换为数据样本，最后将其追加至样本队列中。
+データ読み込み器はファイル名キューからFIFO順にファイル名を取得し、ファイル名に基づいてファイルの記録を読み取ります。成功すると、その記録をデコードして前処理を行い、データサンプルに変換し、最後にサンプルキューに追加します。
 
-\subsubsection{读取器}
+\subsubsection{データ読み込み器}
 
-事实上，实现构造了一个\code{ReaderRead}的\ascii{OP}，它持有文件名队列的句柄，从队列中按照\ascii{FIFO}的顺序获取文件名。
+実際には、\code{ReaderRead}という操作が構築され、これがファイル名キューのハンドルを保持し、キューからFIFO順にファイル名を取得します。
 
-因为文件的格式为\code{TFRecord}，\code{ReaderRead}将委托调用\code{TFRecordReader}的\ascii{OP}，执行文件的读取。最终，经过\code{ReaderRead}的运算，将得到一个序列化了的样本。
+ファイルの形式が\code{TFRecord}であるため、\code{ReaderRead}は\code{TFRecordReader}操作に委託してファイルの読み取りを実行します。最終的に、\code{ReaderRead}の処理によって、シリアル化されたサンプルが得られます。
 
-\subsubsection{解码器}
+\subsubsection{デコーダー}
 
-得到序列化了的样本后，将使用合适的解码器实施解码，从而得到一个期望的样本数据。可选地，可以对样本实施预处理，例如\code{reshape}等操作。
+シリアル化されたサンプルを取得した後、適切なデコーダーを使用してデコードし、期待されるサンプルデータを得ます。オプションで、サンプルに対して前処理を行うことができます。例えば、\code{reshape}などの操作です。
 
-\subsubsection{入队操作}
+\subsubsection{エンキュー操作}
 
-得到样本数据后，将启动\code{QueueEnqueue}的运算，将样本追加至样本队列中去。其中，\code{QueueEnqueue}是一个有状态的\ascii{OP}，它持有样本队列的句柄，直接完成队列的更新操作。
+サンプルデータを取得した後、\code{QueueEnqueue}の処理を開始し、サンプルをサンプルキューに追加します。\code{QueueEnqueue}は状態を持つ操作で、サンプルキューのハンドルを保持し、キューの更新を直接行います。
 
-实施上，样本队列是一个\code{RandomShuffleQueue}，使用出队操作实现随机采样。
+実装上、サンプルキューは\code{RandomShuffleQueue}であり、デキュー操作によってランダムサンプリングを実現します。
 
-\subsubsection{并发执行}
+\subsubsection{並行実行}
 
-为了提高\ascii{IO}的吞吐率，可以启动多路并发的\code{Reader}与\code{Decoder}的工作流，并发地将样本追加至样本队列中去。其中，\code{RandomShuffleQueue}是线程安全的，支持并发的入队或出队操作。
+I/Oのスループットを向上させるために、複数の並行したデータ読み込み器とデコーダーのワークフローを起動し、並行的にサンプルをサンプルキューに追加することができます。\code{RandomShuffleQueue}はスレッドセーフであり、並行のエンキューやデキュー操作をサポートしています。
 
-\subsection{阶段3}
+\subsection{ステップ3}
 
-当数据样本累计至一个\code{batch\_size}时，训练/推理子图将取走该批次的样本数据，启动一次迭代计算(常称为一次\ascii{Step})。
+データサンプルが\code{batch\_size}に達すると、学習/推論サブグラフはそのバッチのサンプルデータを取り出し、1回の反復計算（通常、1ステップと呼ばれます）を開始します。
 
-\subsubsection{出队操作}
+\subsubsection{デキュー操作}
 
-事实上，训练子图使用\code{DequeueMany}获取一个批次的样本数据。
+実際には、学習サブグラフは\code{DequeueMany}を使用して1バッチのサンプルデータを取得します。
 
-\subsubsection{迭代执行}
+\subsubsection{反復実行}
 
-一般地，一次迭代运行，包括两个基本过程：前向计算与反向梯度传递。\ascii{Worker}任务使用\ascii{PS}任务更新到本地的当前值，执行前向计算得到本次迭代的损失。
+一般的に、1回の反復実行には2つの基本的なプロセスが含まれます：順伝播計算と逆伝播勾配計算です。ワーカータスクはパラメータサーバータスクから最新の値をローカルに更新し、順伝播計算を実行して今回の反復の損失を得ます。
 
-然后，根据本次迭代的损失，反向计算各个\ascii{Variable}的梯度，并更新到\ascii{PS}任务中；\ascii{PS}任务更新各个\code{Variable}的值，并将当前值广播到各个\ascii{Worker}任务上去。
+次に、今回の反復の損失に基づいて、各\ascii{Variable}の勾配を逆方向に計算し、パラメータサーバータスクに更新します。パラメータサーバータスクは各\code{Variable}の値を更新し、現在の値を各ワーカータスクにブロードキャストします。
 
-\subsubsection{Checkpoint}
+\subsubsection{チェックポイント}
 
-\ascii{PS}任务根据容错策略，周期性地实施\ascii{Checkpoint}。将当前所有\code{Variable}的数据，及其图的元数据，包括静态的图结构信息，持久化到外部存储设备上，以便后续恢复计算图，及其所有\code{Variable}的数据。
+パラメータサーバータスクは、耐障害性戦略に基づいて、定期的にチェックポイントを実施します。現在のすべての\code{Variable}のデータ、およびグラフのメタデータ（静的なグラフ構造情報を含む）を外部ストレージデバイスに永続化し、後で計算グラフとすべての\code{Variable}のデータを復元できるようにします。
 
-\subsection{Pipeline节拍}
+\subsection{パイプラインの同期}
 
-例如，往\code{FIFOQueue}的队列中添加文件名称列表，此时调用\code{EnqueueMany}起始的子图计算，其中包括执行所依赖的\code{CountUpTo}。当\code{CountUpTo}达到\code{limit}上限时，将自动抛出\code{OutOfRangeError}异常。
+例えば、\code{FIFOQueue}キューにファイル名リストを追加する際、\code{EnqueueMany}から始まるサブグラフ計算が呼び出されます。これには依存する\code{CountUpTo}の実行が含まれます。\code{CountUpTo}が\code{limit}上限に達すると、自動的に\code{OutOfRangeError}例外が発生します。
 
-扮演主程序的\code{QueueRunner}，捕获\code{coord.join}重新抛出的\code{OutOfRangeError}异常，随后立即关闭相应的队列，并且退出该线程的执行。队列被关闭之后，入队操作将变为非法；而出队操作则依然合法，除非队列元素为空。
+メインプログラムの役割を果たす\code{QueueRunner}は、\code{coord.join}が再度投げる\code{OutOfRangeError}例外をキャッチし、直ちに対応するキューを閉じ、そのスレッドの実行を終了します。キューが閉じられた後、エンキュー操作は不正となりますが、デキュー操作は依然として有効です（ただし、キューの要素が空の場合を除きます）。
 
-同样的道理，下游\ascii{OP}从队列(文件名队列)中出队元素，一旦该队列元素为空，则自动抛出\code{OutOfRangeError}异常。该阶段对应的\code{QueueRunner}将感知该异常的发生，然后捕获异常并关闭下游的队列(样本队列)，退出线程的执行。
+同様に、下流の操作がキュー（ファイル名キュー）から要素をデキューする際、そのキューの要素が空になると、自動的に\code{OutOfRangeError}例外が発生します。この段階に対応する\code{QueueRunner}はその例外の発生を感知し、例外をキャッチして下流のキュー（サンプルキュー）を閉じ、スレッドの実行を終了します。
 
-在\ascii{Pipeline}的最后阶段，\code{train\_op}从样本队列中出队批次训练样本时，队列为空，并且队列被关闭了，则抛出\code{OutOfRangeError}异常，最终停止整个训练任务。
+パイプラインの最後の段階で、\code{train\_op}がサンプルキューからバッチ学習サンプルをデキューする際、キューが空で、かつキューが閉じられている場合、\code{OutOfRangeError}例外が発生し、最終的に学習タスク全体が停止します。
+
+\end{content}

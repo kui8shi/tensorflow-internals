@@ -3,26 +3,26 @@
 \qauthor{\ascii{- Martin Flower}}
 \end{savequote}
 
-\chapter{会话} 
+\chapter{セッション} 
 \label{ch:session}
 
 \begin{content}
 
-客户端以\code{Session}为桥梁，与后台计算引擎建立连接，并启动计算图的执行过程。其中，通过调用\code{Session.run}将触发\ascii{TensorFlow}的一次计算\ascii{(Step)}。
+クライアントは\code{Session}を橋渡しとして、バックエンドの計算エンジンとの接続を確立し、計算グラフの実行プロセスを開始します。\code{Session.run}を呼び出すことで、\ascii{TensorFlow}の1回の計算\ascii{(Step)}がトリガーされます。
 
-事实上，\code{Session}建立了执行计算图的闭包环境，它封装了\ascii{OP}计算，及其\ascii{Tensor}求值的计算环境。
+実際、\code{Session}は計算グラフを実行するためのクロージャー環境を確立し、\ascii{OP}の計算とその\ascii{Tensor}の評価の計算環境をカプセル化します。
 
 \end{content}
 
-\section{资源管理}
+\section{リソース管理}
 
 \begin{content}
 
-在\code{Session}的生命周期中，将根据计算图的计算需求，按需分配系统资源，包括变量，队列，读取器等。
+\code{Session}のライフサイクル中に、計算グラフの計算要件に応じて、変数、キュー、リーダーなどのシステムリソースが必要に応じて割り当てられます。
 
-\subsection{关闭会话}
+\subsection{セッションのクローズ}
 
-当计算完成后，需要确保\code{Session}被安全地关闭，以便安全释放所管理的系统资源。
+計算が完了したら、管理されているシステムリソースを安全に解放するために、\code{Session}が安全にクローズされていることを確認する必要があります。
 
 \begin{leftbar}
 \begin{python}
@@ -32,9 +32,9 @@ sess.close()
 \end{python}
 \end{leftbar}
 
-\subsection{上下文管理器}
+\subsection{コンテキストマネージャー}
 
-一般地，常常使用上下文管理器创建\code{Session}，使得\code{Session}在计算完成后，能够自动关闭，确保资源安全性地被释放。
+一般的に、\code{Session}の作成にはコンテキストマネージャーを使用することが多く、計算完了後に\code{Session}が自動的にクローズされ、リソースが安全に解放されることを保証します。
 
 \begin{leftbar}
 \begin{python}
@@ -43,26 +43,26 @@ with tf.Session() as sess:
 \end{python}
 \end{leftbar}
 
-\subsection{图实例}
+\subsection{グラフインスタンス}
 
-一个\code{Session}实例，只能运行一个图实例；但是，一个图实例，可以运行在多个\code{Session}实例中。如果尝试在同一个\code{Session}运行另外一个图实例，必须先关闭\code{Session}(不必销毁)，再启动新图的计算过程。
+1つの\code{Session}インスタンスは1つのグラフインスタンスのみを実行できますが、1つのグラフインスタンスは複数の\code{Session}インスタンスで実行できます。同じ\code{Session}で別のグラフインスタンスを実行しようとする場合は、まず\code{Session}をクローズ（破棄する必要はありません）してから、新しいグラフの計算プロセスを開始する必要があります。
 
-虽然一个\code{Session}实例，只能运行一个图实例。但是，可以\code{Session}是一个线程安全的类，可以并发地执行该图实例上的不同子图。例如，一个典型的机器学习训练模型中，可以使用同一个\code{Session}实例，并发地运行输入子图，训练子图，及其\ascii{Checkpoint}子图。
+\code{Session}インスタンスは1つのグラフインスタンスのみを実行できますが、\code{Session}はスレッドセーフなクラスであり、そのグラフインスタンス上の異なるサブグラフを並行して実行できます。例えば、典型的な機械学習トレーニングモデルでは、同じ\code{Session}インスタンスを使用して、入力サブグラフ、トレーニングサブグラフ、および\ascii{Checkpoint}サブグラフを並行して実行できます。
 
-\subsubsection{引用计数器}
+\subsubsection{参照カウンター}
 
-为了提高效率，避免计算图频繁地创建与销毁，存在一种实现上的优化技术。在图实例中维护一个\code{Session}的引用计数器，当且仅当\code{Session}的数目为零时，才真正地销毁图实例。
+効率を高め、計算グラフの頻繁な作成と破棄を避けるために、実装上の最適化技術が存在します。グラフインスタンス内に\code{Session}の参照カウンターを維持し、\code{Session}の数が0になった場合にのみ、実際にグラフインスタンスを破棄します。
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/tf-graph-session-relation.png}
-\caption{优化技术：会话实例的引用计数器}
+\caption{最適化技術：セッションインスタンスの参照カウンター}
  \label{fig:tf-graph-session-relation}
 \end{figure}
 
-\subsubsection{数据结构}
+\subsubsection{データ構造}
 
-此处，摘取\code{TF\_Graph}部分关于\code{Session}引用计数器技术的关键字段；其中，\code{TF\_Graph}结构体定义于\ascii{C API}的头文件。
+ここでは、\code{TF\_Graph}の\code{Session}参照カウンター技術に関する重要なフィールドを抜粋しています。\code{TF\_Graph}構造体は\ascii{C API}のヘッダーファイルで定義されています。
 
 \begin{leftbar}
 \begin{c++}
@@ -83,7 +83,7 @@ struct TF_Graph {
 \end{c++}
 \end{leftbar}
 
-同理，\code{TF\_Session}持有一个二元组：\code{<tensorflow::Sesssion, TF\_Graph>}，它们之间是一对一的关系。其中，\code{tensorflow::Sesssion}是\ascii{C++}客户端侧的会话实例。
+同様に、\code{TF\_Session}は\code{<tensorflow::Sesssion, TF\_Graph>}のペアを保持しており、これらは1対1の関係です。\code{tensorflow::Sesssion}は\ascii{C++}クライアント側のセッションインスタンスです。
 
 \begin{leftbar}
 \begin{c++}
@@ -98,7 +98,7 @@ struct TF_Session {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{创建会话}
+\subsubsection{セッションの作成}
 
 \begin{leftbar}
 \begin{c++}
@@ -120,7 +120,7 @@ TF_Session* TF_NewSession(TF_Graph* graph, const TF_SessionOptions* opt,
 \end{c++}
 \end{leftbar}
 
-\subsubsection{销毁会话}
+\subsubsection{セッションの破棄}
 
 \begin{leftbar}
 \begin{c++}
@@ -140,11 +140,11 @@ void TF_DeleteSession(TF_Session* s, TF_Status* status) {
 \end{c++}
 \end{leftbar}
 
-\section{默认会话}
+\section{デフォルトセッション}
 
 \begin{content}
 
-通过调用\ascii{Session.as\_default()}，将该\code{Session}置为默认\code{Session}，同时它返回了一个上下文管理器。在默认\code{Session}的上文中，可以直接实施\ascii{OP}的运算，或者\ascii{Tensor}的求值。
+\ascii{Session.as\_default()}を呼び出すことで、その\code{Session}をデフォルトの\code{Session}として設定し、同時にコンテキストマネージャーを返します。デフォルトの\code{Session}のコンテキスト内で、\ascii{OP}の演算や\ascii{Tensor}の評価を直接実行できます。
 
 \begin{leftbar}
 \begin{python}
@@ -157,11 +157,11 @@ sess.close()
 \end{python}
 \end{leftbar}
 
-但是，\code{Session.as\_default()}并不会自动关闭\code{Session}，需要用户显式地调用\code{Session.close}方法。
+ただし、\code{Session.as\_default()}は自動的に\code{Session}をクローズしないため、ユーザーが明示的に\code{Session.close}メソッドを呼び出す必要があります。
 
-\subsection{张量求值}
+\subsection{テンソルの評価}
 
-如上例代码，\code{hello.eval()}等价于\code{tf.get\_default\_session().run(hello)}。其中，\code{Tensor.eval}如下代码实现。
+上記のコード例では、\code{hello.eval()}は\code{tf.get\_default\_session().run(hello)}と同等です。\code{Tensor.eval}は以下のコードで実装されています。
 
 \begin{leftbar}
 \begin{python}
@@ -173,9 +173,9 @@ class Tensor(_TensorLike):
 \end{python}
 \end{leftbar}
 
-\subsection{OP运算}
+\subsection{OP演算}
 
-同理，当用户未显式提供\code{Session}，\code{Operation.run}将自动获取默认的\code{Session}实例，并按照当前\ascii{OP}的依赖关系，以某个特定的拓扑排序执行该计算子图。
+同様に、ユーザーが明示的に\code{Session}を提供しない場合、\code{Operation.run}は自動的にデフォルトの\code{Session}インスタンスを取得し、現在の\ascii{OP}の依存関係に従って、特定のトポロジカル順序でその計算サブグラフを実行します。
 
 \begin{leftbar}
 \begin{python}
@@ -187,11 +187,11 @@ class Operation(object):
 \end{python}
 \end{leftbar}
 
-\subsection{线程相关}
+\subsection{スレッド関連}
 
-默认会话仅仅对当前线程有效，以便在当前线程追踪Session的调用栈。如果在新的线程中使用默认会话，需要在线程函数中通过调用\code{as\_default}将\code{Session}置为默认会话。
+デフォルトセッションは現在のスレッドでのみ有効であり、現在のスレッドでSessionの呼び出しスタックを追跡できるようにします。新しいスレッドでデフォルトセッションを使用する場合は、スレッド関数内で\code{as\_default}を呼び出して\code{Session}をデフォルトセッションとして設定する必要があります。
 
-事实上，在\ascii{TensorFlow}运行时维护了一个\code{Session}的本地线程栈，实现默认\code{Session}的自动管理。
+実際、\ascii{TensorFlow}ランタイムは\code{Session}のローカルスレッドスタックを維持し、デフォルトの\code{Session}の自動管理を実装しています。
 
 \begin{leftbar}
 \begin{python}
@@ -202,7 +202,7 @@ def get_default_session(session):
 \end{python}
 \end{leftbar}
 
-其中，\code{\_DefaultStack}表示栈的数据结构。
+ここで、\code{\_DefaultStack}はスタックのデータ構造を表します。
 
 \begin{leftbar}
 \begin{python}
@@ -226,26 +226,26 @@ class _DefaultStack(threading.local):
 
 \end{content}
 
-\section{会话类型}
+\section{セッションタイプ}
 
 \begin{content}
 
-一般地，存在两种基本的会话类型：\code{Session}与\code{InteractiveSession}。后者常常用于交互式环境，它在构造期间将其自身置为默认，简化默认会话的管理过程。
+一般的に、2つの基本的なセッションタイプが存在します：\code{Session}と\code{InteractiveSession}です。後者は対話型環境でよく使用され、構築時に自身をデフォルトとして設定し、デフォルトセッションの管理プロセスを簡素化します。
 
-此外，两者在运行时的配置也存在差异。例如，\code{InteractiveSession}将\code{GPUOptions.allow\_growth}置为\code{True}，避免在实验环境中独占整个GPU的存储资源。
+さらに、両者はランタイム構成にも違いがあります。例えば、\code{InteractiveSession}は\code{GPUOptions.allow\_growth}を\code{True}に設定し、実験環境でGPUのストレージリソース全体を独占することを避けます。
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/py-session-hierarchy.png}
-\caption{Session：类层次结构}
+\caption{Session：クラス階層構造}
  \label{fig:py-session-hierarchy}
 \end{figure}
 
 \subsection{Session}
 
-\code{Session}继承\code{BaseSession}，并增加了默认图与默认会话的上下文管理器的功能，保证系统资源的安全释放。
+\code{Session}は\code{BaseSession}を継承し、デフォルトグラフとデフォルトセッションのコンテキストマネージャー機能を追加し、システムリソースの安全な解放を保証します。
 
-一般地，使用\code{with}进入会话的上下文管理器，并自动切换默认图与默认会话的上下文；退出\code{with}语句时，将自动关闭默认图与默认会话的上下文，并自动关闭会话。
+一般的に、\code{with}文を使用してセッションのコンテキストマネージャーに入り、自動的にデフォルトグラフとデフォルトセッションのコンテキストを切り替えます。\code{with}文を抜けると、デフォルトグラフとデフォルトセッションのコンテキストが自動的にクローズされ、セッションも自動的にクローズされます。
 
 \begin{leftbar}
 \begin{python}
@@ -277,9 +277,9 @@ class Session(BaseSession):
 
 \subsection{InteractiveSession}
 
-与\code{Session}不同，\code{InteractiveSession}在构造期间将其自身置为默认，并实现默认图与默认会话的自动切换。与此相反，\code{Session}必须借助于\code{with}语句才能完成该功能。在交互式环境中，\code{InteractiveSession}简化了用户管理默认图和默认会话的过程。
+\code{Session}とは異なり、\code{InteractiveSession}は構築時に自身をデフォルトとして設定し、デフォルトグラフとデフォルトセッションの自動切り替えを実装します。対照的に、\code{Session}はこの機能を実現するために\code{with}文に頼る必要があります。対話型環境では、\code{InteractiveSession}はユーザーのデフォルトグラフとデフォルトセッションの管理プロセスを簡素化します。
 
-同理，\code{InteractiveSession}在计算完成后需要显式地关闭，以便安全地释放其所占用的系统资源。
+同様に、\code{InteractiveSession}は計算完了後に明示的にクローズする必要があり、占有しているシステムリソースを安全に解放します。
 
 \begin{leftbar}
 \begin{python}
@@ -302,11 +302,11 @@ class InteractiveSession(BaseSession):
 
 \subsection{BaseSession}
 
-\code{BaseSession}是两者的基类，它主要实现会话的创建，关闭，执行，销毁等管理生命周期的操作；它与后台计算引擎相连接，实现前后端计算的交互。
+\code{BaseSession}は両者の基本クラスであり、主にセッションの作成、クローズ、実行、破棄などのライフサイクル管理操作を実装します。バックエンドの計算エンジンと接続し、フロントエンドとバックエンドの計算の相互作用を実現します。
 
-\subsubsection{创建会话}
+\subsubsection{セッションの作成}
 
-通过调用\ascii{C API}的接口，\code{self.\_session}直接持有后台计算引擎的会话句柄，后期执行计算图，关闭会话等操作都以此句柄为标识。
+\ascii{C API}のインターフェースを呼び出すことで、\code{self.\_session}はバックエンドの計算エンジンのセッションハンドルを直接保持し、後の計算グラフの実行、セッションのクローズなどの操作はすべてこのハンドルを識別子として使用します。
 
 \begin{leftbar}
 \begin{python}
@@ -319,9 +319,9 @@ class BaseSession(SessionInterface):
 \end{python}
 \end{leftbar}
 
-\subsubsection{执行计算图}
+\subsubsection{計算グラフの実行}
 
-通过调用\code{run}接口，实现计算图的一次计算。它首先通过\code{tf\_session.TF\_ExtendGraph}将图注册给后台计算引擎，然后再通过调用\code{tf\_session.TF\_Run}启动计算图的执行。
+\code{run}インターフェースを呼び出すことで、計算グラフの1回の計算を実現します。まず\code{tf\_session.TF\_ExtendGraph}を通じてグラフをバックエンドの計算エンジンに登録し、その後\code{tf\_session.TF\_Run}を呼び出して計算グラフの実行を開始します。
 
 \begin{leftbar}
 \begin{python}
@@ -341,7 +341,7 @@ class BaseSession(SessionInterface):
 \end{python}
 \end{leftbar}
 
-\subsubsection{关闭会话}
+\subsubsection{セッションのクローズ}
 
 \begin{leftbar}
 \begin{python}
@@ -352,7 +352,7 @@ class BaseSession(SessionInterface):
 \end{python}
 \end{leftbar}
 
-\subsubsection{销毁会话}
+\subsubsection{セッションの破棄}
 
 \begin{leftbar}
 \begin{python}
@@ -366,4 +366,4 @@ class BaseSession(SessionInterface):
 \end{python}
 \end{leftbar}
 
-\begin{content}
+\end{content}

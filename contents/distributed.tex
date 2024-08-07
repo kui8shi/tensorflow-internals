@@ -1,85 +1,87 @@
+Here is the Japanese translation of the text, with LaTeX formatting preserved and code segments abbreviated:
+
 \begin{savequote}[45mm]
-\ascii{Any fool can write code that a computer can understand. Good programmers write code that humans can understand.}
-\qauthor{\ascii{- Martin Flower}}
+\ascii{コンピューターが理解できるコードを書くのは誰にでもできる。優れたプログラマーは人間が理解できるコードを書く。}
+\qauthor{\ascii{- マーティン・ファウラー}}
 \end{savequote}
 
-\chapter{分布式TensorFlow} 
+\chapter{分散TensorFlow} 
 \label{ch:distributed}
 
 \begin{content}
 
-\tf{}可以运行在分布式环境中，完成计算图的执行过程。本章将重点介绍 分布式运行时的基本架构与运行机制；重点讨论各个服务进程之间的交互关系；并且深入剖析在分布式环境中图操作，及其会话生命周期控制的关键技术；
+\tf{}は分散環境で実行でき、計算グラフの実行プロセスを完了することができます。本章では、分散ランタイムの基本アーキテクチャと実行メカニズムに焦点を当てます。さまざまなサービスプロセス間の相互作用関係について詳しく説明します。また、分散環境におけるグラフ操作とそのセッションのライフサイクル制御の主要技術について詳しく分析します。
 
 \end{content}
 
-\section{分布式模式}
+\section{分散モード}
 
 \begin{content}
 
-在分布式模式中，\ascii{Client}负责计算图的构造，然后通过调用\code{Session.run}，启动计算图的执行过程。
+分散モードでは、\ascii{Client}が計算グラフの構築を担当し、その後\code{Session.run}を呼び出して計算グラフの実行プロセスを開始します。
 
-\ascii{Master}进程收到计算图执行的消息后，启动计算图的剪枝，分裂，优化等操作；最终将子图分发注册到各个\ascii{Worker}进程上，然后触发各个\ascii{Worker}进程并发执行子图。
+\ascii{Master}プロセスは、計算グラフ実行のメッセージを受信すると、計算グラフの剪定、分割、最適化などの操作を開始します。最終的に、サブグラフを各\ascii{Worker}プロセスに分配して登録し、その後各\ascii{Worker}プロセスの並行実行をトリガーします。
 
-\ascii{Worker}进程收到子图注册的消息后，根据本地计算设备资源，再将计算子图实施二次分裂，将子图分配在各个计算设备上，最后启动各个计算设备并发地执行子图；如果\ascii{Worker}之间存在数据交换，可以通过进程间通信完成交互。
+\ascii{Worker}プロセスは、サブグラフ登録のメッセージを受信すると、ローカルの計算デバイスリソースに基づいて、計算サブグラフをさらに二次分割し、サブグラフを各計算デバイスに割り当てます。最後に、各計算デバイスの並行サブグラフ実行を開始します。\ascii{Worker}間にデータ交換が存在する場合、プロセス間通信を通じて対話を完了できます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/distributed.png}
-\caption{分布式模式}
+\caption{分散モード}
  \label{fig:distributed}
 \end{figure}
 
-\subsection{图操作}
+\subsection{グラフ操作}
 
-如\refig{dist-runtime}所示，在\code{run\_step}执行过程之中，涉及计算图的剪枝、分裂、执行三个重要的图操作。其中，在分布式运行时，图分裂经历了两级分裂过程。
+図\refig{dist-runtime}に示すように、\code{run\_step}の実行過程には、計算グラフの剪定、分割、実行という3つの重要なグラフ操作が含まれています。そのうち、分散ランタイムでは、グラフ分割は2段階の分割プロセスを経験しています。
 
 \begin{enum}
-  \eitem{一级分裂：由\code{MasterSession}完成，按照\code{SplitByWorker}或\code{SplitByTask}完成图分裂过程；}
-  \eitem{二级分裂：由\code{WorkerSession}完成，按照\code{SplitByDevice}完成图分裂过程。}
+  \eitem{\code{MasterSession}によって完了される一次分割：\code{SplitByWorker}または\code{SplitByTask}に従ってグラフ分割プロセスを完了します。}
+  \eitem{\code{WorkerSession}によって完了される二次分割：\code{SplitByDevice}に従ってグラフ分割プロセスを完了します。}
 \end{enum}
 
-在分布式模式中，图剪枝也体现了\tf{}部分执行的设计理念；而图分裂和执行也体现了\tf{}并发执行的设计理念。其中，图剪枝仅发生在\ascii{Master}上，不发生在\ascii{Worker}上；而图分裂发生在\ascii{Master}和\ascii{Worker}上；图执行仅仅发生在\ascii{Worker}上，不发生在\ascii{Master}上。
+分散モードでは、グラフの剪定も\tf{}の部分実行の設計理念を体現しています。一方、グラフの分割と実行も\tf{}の並行実行の設計理念を体現しています。そのうち、グラフの剪定は\ascii{Master}上でのみ発生し、\ascii{Worker}上では発生しません。一方、グラフの分割は\ascii{Master}と\ascii{Worker}の両方で発生します。グラフの実行は\ascii{Worker}上でのみ発生し、\ascii{Master}上では発生しません。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/dist-runtime.png}
-\caption{分布式：图操作}
+\caption{分散：グラフ操作}
  \label{fig:dist-runtime}
 \end{figure}
 
-\subsubsection{图分裂}
+\subsubsection{グラフ分割}
 
-为了更好地理解分布式运行时的工作原理，以一个简单的例子阐述图操作的具体过程。如\refig{dist-exp-1}所示，假如存在一个简单的计算图，并且\code{f, c, a}部署在\code{/job:ps/task:0}上，且分别被编排到\code{CPU0, CPU1, CPU2}上；\code{g, h}部署在\code{/job:worker/task:0}上，且同时被编排到\code{GPU0}上；\code{b, d, e}部署在\code{/job:worker/task:1}上，且\code{d, e}被编排到\code{GPU0}上，而\code{b}被编排到\code{GPU1}上。
+分散ランタイムの動作原理をよりよく理解するために、簡単な例を使用してグラフ操作の具体的なプロセスを説明します。図\refig{dist-exp-1}に示すように、単純な計算グラフが存在し、\code{f, c, a}が\code{/job:ps/task:0}上に配置され、それぞれ\code{CPU0, CPU1, CPU2}上にスケジュールされているとします。\code{g, h}は\code{/job:worker/task:0}上に配置され、同時に\code{GPU0}上にスケジュールされています。\code{b, d, e}は\code{/job:worker/task:1}上に配置され、\code{d, e}は\code{GPU0}上にスケジュールされ、\code{b}は\code{GPU1}上にスケジュールされています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/dist-exp-1.png}
-\caption{分布式：图分裂}
+\caption{分散：グラフ分割}
  \label{fig:dist-exp-1}
 \end{figure}
 
-\subsubsection{数据交换}
+\subsubsection{データ交換}
 
-如\refig{dist-exp-2}所示，对于跨设备的边，运行时自动实施边的分裂，分别在发送端和接收端插入\code{Send}和\code{Recv}两个末端节点。
+図\refig{dist-exp-2}に示すように、デバイスをまたぐエッジに対して、ランタイムは自動的にエッジの分割を実施し、送信側と受信側にそれぞれ\code{Send}と\code{Recv}の末端ノードを挿入します。
 
-进程间的\code{Send}和\code{Recv}节点，通过\code{GrpcRemoteRendezvous}实现数据交换。例如，\code{/job:ps/task:0}与\code{/job:worker/task:0}，\code{/job:ps/task:0}与\code{/job:worker/task:1}，或\code{/job:worker/task:0}与\code{/job:worker/task:1}之间是通过\code{GrpcRemoteRendezvous}完成数据交换的。
+プロセス間の\code{Send}と\code{Recv}ノードは、\code{GrpcRemoteRendezvous}を通じてデータ交換を実現します。例えば、\code{/job:ps/task:0}と\code{/job:worker/task:0}、\code{/job:ps/task:0}と\code{/job:worker/task:1}、または\code{/job:worker/task:0}と\code{/job:worker/task:1}の間は\code{GrpcRemoteRendezvous}を通じてデータ交換を完了します。
 
-而进程内的\code{Send}和\code{Recv}节点，则通过\code{IntraProcessRendezvous}实现数据交换。例如，\code{/job:worker/task:1}内存在两个\code{GPU}，它们之间采用\code{IntraProcessRendezvous}实现数据交换。关于\code{Rendezvous}的具体实现过程，下文将还会重点讲述。
+一方、プロセス内の\code{Send}と\code{Recv}ノードは、\code{IntraProcessRendezvous}を通じてデータ交換を実現します。例えば、\code{/job:worker/task:1}内に2つの\code{GPU}が存在し、それらの間は\code{IntraProcessRendezvous}を使用してデータ交換を実現します。\code{Rendezvous}の具体的な実装プロセスについては、後述でさらに詳しく説明します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/dist-exp-2.png}
-\caption{分布式：数据交换}
+\caption{分散：データ交換}
  \label{fig:dist-exp-2}
 \end{figure}
 
 \subsection{形式化}
 
-在真实的系统实现中，分布式的运行时使用\ascii{C++}实现。其中，\tf{}运行时的关键路径为\code{run\_step}。因为真实系统实现中涉及过多的细节，不易发现算法的主干和逻辑。为了简化问题的描述，将形式化地描述\code{run\_step}的实现过程。
+実際のシステム実装では、分散ランタイムは\ascii{C++}で実装されています。そのうち、\tf{}ランタイムの重要なパスは\code{run\_step}です。実際のシステム実装には多くの詳細が含まれているため、アルゴリズムの主要部分とロジックを見つけるのは容易ではありません。問題の記述を簡略化するために、\code{run\_step}の実装プロセスを形式的に記述します。
 
 \subsubsection{Master::RunStep}
 
-在\ascii{Master}上，主要完成\code{FullGraph}的剪枝操作，生成\code{ClientGraph}；然后，按照\ascii{Worker}将\code{ClientGraph}分裂为多个\code{PartitionGraph}；最后，将\code{PartitionGraph}列表注册给各个\ascii{Worker}，并启动各个\ascii{Worker}并发执行\code{PartitionGraph}列表。
+\ascii{Master}上では、主に\code{FullGraph}の剪定操作を完了し、\code{ClientGraph}を生成します。次に、\ascii{Worker}に従って\code{ClientGraph}を複数の\code{PartitionGraph}に分割します。最後に、\code{PartitionGraph}リストを各\ascii{Worker}に登録し、各\ascii{Worker}の並行実行を開始して\code{PartitionGraph}リストを実行します。
 
 \begin{leftbar}
 \begin{python}
@@ -93,11 +95,11 @@ def run_step(workers, full_graph, inputs, outputs):
 
 \subsubsection{Worker::RunStep}
 
-在某个特定的\ascii{Worker}节点上，当收到\code{RegisterGraphRequest}消息后，将计算图按照本地设备集分裂为多个\code{PartitionGraph}。然后，在每个计算设备启动一个\code{Executor}，以便执行分配给它的\code{PartitionGraph}。
+特定の\ascii{Worker}ノード上で、\code{RegisterGraphRequest}メッセージを受信すると、ローカルデバイスセットに従って計算グラフをさらに複数の\code{PartitionGraph}に分割します。次に、各計算デバイス上で\code{Executor}を起動し、それに割り当てられた\code{PartitionGraph}を実行します。
 
-当某一个计算设备执行完所分配的\code{PartitionGraph}之后，\code{ExecutorBarrier}的计数器加\ascii{1}，直至所有设备完成\code{PartitionGraph}列表的执行，\code{barrier.wait()}阻塞操作退出。
+ある計算デバイスが割り当てられた\code{PartitionGraph}の実行を完了すると、\code{ExecutorBarrier}のカウンターが1増加し、すべてのデバイスが\code{PartitionGraph}リストの実行を完了するまで、\code{barrier.wait()}のブロック操作が終了します。
 
-跨设备的\code{PartitionGraph}之间可能存在数据依赖关系，它们之间通过插入\code{Send/Recv}节点完成交互。事实上，在分布式运行时，\code{Send/Recv}通过\code{RpcRemoteRendezvous}完成数据交换的。
+デバイスをまたぐ\code{PartitionGraph}間にデータ依存関係が存在する可能性があり、それらの間では\code{Send/Recv}ノードを挿入して対話を完了します。実際、分散ランタイムでは、\code{Send/Recv}は\code{RpcRemoteRendezvous}を通じてデータ交換を完了します。
 
 % \code{Send}节点将调用\code{RpcRemoteRendezvous::Send}，它委托\code{LocalRendezvous}数据放在本地。而\code{Recv}节点则根据标识调用\code{RpcRemoteRendezvous::Recv}获取数据。此时，可能存在两种情况。
 
@@ -134,63 +136,63 @@ def run_step(devices, full_graph, inputs, outputs):
 \end{python}
 \end{leftbar}
 
-\subsection{领域模型}
+\subsection{ドメインモデル}
 
-如\refig{cc-dist-model}所示，在\tf{}分布式运行时，存在一个精巧的领域模型。
+図\refig{cc-dist-model}に示すように、\tf{}分散ランタイムには洗練されたドメインモデルが存在します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/cc-dist-model.png}
-\caption{分布式：领域模型}
+\caption{分散：ドメインモデル}
  \label{fig:cc-dist-model}
 \end{figure}
 
 \subsubsection{Cluster}
 
-\ascii{Cluster}使用\ascii{ClusterSpec}进行描述，它可以划分为一个或多个\ascii{Job}，一个\ascii{Job}包含一个或多个\ascii{Task}。也就是说，\ascii{TensorFlow}集群是由执行计算图的任务集\ascii{(Task Set)}组成的。
+\ascii{Cluster}は\ascii{ClusterSpec}を使用して記述され、1つまたは複数の\ascii{Job}に分割できます。1つの\ascii{Job}は1つまたは複数の\ascii{Task}を含みます。つまり、\ascii{TensorFlow}クラスターは計算グラフを実行するタスクセット\ascii{(Task Set)}で構成されています。
 
-每个\ascii{Task}可以独立运行在单独的机器上，也可以在一台机器上运行多个\ascii{Task}(例如，单机多\ascii{CPU}，或单机多\ascii{GPU})。
+各\ascii{Task}は独立して個別のマシン上で実行できるほか、1台のマシン上で複数の\ascii{Task}を実行することもできます（例：単一マシンの複数\ascii{CPU}、または単一マシンの複数\ascii{GPU}）。
 
 \subsubsection{Job}
 
-将目的相同的\ascii{Task}划归在同一个\ascii{Job}中。每个\ascii{Job}使用\code{job\_id}唯一标识。
+目的が同じ\ascii{Task}を同じ\ascii{Job}にグループ化します。各\ascii{Job}は\code{job\_id}で一意に識別されます。
 
-一般地，在分布式深度学习的模型训练过程中，存在两种基本的\ascii{Job}类型：
+一般的に、分散深層学習のモデルトレーニングプロセスには、2種類の基本的な\ascii{Job}タイプが存在します：
 
 \begin{enum}
-  \eitem{\ascii{ps}：负责模型参数的存储和更新；}
-  \eitem{\ascii{worker}：负责计算密集型的模型训练和推理。}
+  \eitem{\ascii{ps}：モデルパラメーターの保存と更新を担当します。}
+  \eitem{\ascii{worker}：計算集約型のモデルトレーニングと推論を担当します。}
 \end{enum}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/py-dist-ps-worker.png}
-\caption{分布式模型训练：PS与Worker之间的交互}
+\caption{分散モデルトレーニング：PSとWorkerの間の相互作用}
  \label{fig:py-dist-ps-worker}
 \end{figure}
 
 \subsubsection{Task}
 
-一般地，在分布式运行时中，\ascii{Task}运行在独立的进程中，并在其上运行一个\code{tf.train.Server}实例。其中，\ascii{Task}使用\code{job\_id:task\_index}的二元组唯一标识。
+一般的に、分散ランタイムでは、\ascii{Task}は独立したプロセスで実行され、その上で\code{tf.train.Server}インスタンスが実行されます。そのうち、\ascii{Task}は\code{job\_id:task\_index}の2つ組で一意に識別されます。
 
 \subsubsection{Server}
 
-\ascii{Server}表示\ascii{Task}的服务进程，它对外提供\code{MasterService}和\code{WorkerService}服务。也就是说，\ascii{Server}可以同时扮演\ascii{Master}和\ascii{Worker}两种角色。
+\ascii{Server}は\ascii{Task}のサービスプロセスを表し、外部に\code{MasterService}と\code{WorkerService}サービスを提供します。つまり、\ascii{Server}は同時に\ascii{Master}と\ascii{Worker}の2つの役割を果たすことができます。
 
-\subsection{组建集群}
+\subsection{クラスターの構築}
 
-在分布式的\tf{}运行时中，每个\ascii{Task}启动了一个\ascii{Server}，并对外提供\code{MasterService}服务和\code{WorkerService}服务。其中，组建\ascii{TensorFlow}集群包括两个基本步骤：
+\tf{}の分散ランタイムでは、各\ascii{Task}が\ascii{Server}を起動し、外部に\code{MasterService}サービスと\code{WorkerService}サービスを提供します。そのうち、\ascii{TensorFlow}クラスターの構築には2つの基本的なステップが含まれます：
 
 \begin{enum}
-  \eitem{创建\code{tf.train.ClusterSpec}，描述集群中\ascii{Task}的部署信息，并以\ascii{Job}的方式组织；}
-  \eitem{对于每一个\ascii{Task}，启动一个\code{tf.train.Server}实例。}
+  \eitem{\code{tf.train.ClusterSpec}を作成し、クラスター内の\ascii{Task}のデプロイ情報を記述し、\ascii{Job}の方法で組織します。}
+  \eitem{各\ascii{Task}に対して、\code{tf.train.Server}インスタンスを起動します。}
 \end{enum}
 
-\subsubsection{集群配置}
+\subsubsection{クラスター設定}
 
-\code{ClusterSpec}描述了集群中\ascii{Task}的部署信息，并以\ascii{Job}的方式组织。一般地，在分布式的执行模式中，为每个\ascii{Task}启动一个进程。因此，\code{ClusterSpec}同时也描述了\ascii{TensorFlow}分布式运行时的进程分布情况。
+\code{ClusterSpec}はクラスター内の\ascii{Task}のデプロイ情報を記述し、\ascii{Job}の方法で組織します。一般的に、分散実行モードでは、各\ascii{Task}に対して1つのプロセスを起動します。したがって、\code{ClusterSpec}は同時に\tf{}分散ランタイムのプロセス分布状況も記述しています。
 
-例如，存在一个\ascii{TensorFlow}集群，它由\code{ps}和\code{worker}两个\ascii{Job}组成。其中，\code{ps}部署在\code{ps0:2222, ps1:2222}上；\code{worker}部署在\code{worker0:2222, worker1:2222, worker2:2222}上。
+例えば、\ascii{TensorFlow}クラスターが存在し、\code{ps}と\code{worker}の2つの\ascii{Job}で構成されているとします。そのうち、\code{ps}は\code{ps0:2222, ps1:2222}上にデプロイされています。\code{worker}は\code{worker0:2222, worker1:2222, worker2:2222}上にデプロイされています。
 
 \begin{leftbar}
 \begin{python}
@@ -207,9 +209,9 @@ tf.train.ClusterSpec({
 \end{python}
 \end{leftbar}
 
-在此例中，未显式地指定\ascii{Task}的索引。默认地，一个\ascii{Job}的\ascii{Task}集合中，\ascii{Task}索引从\ascii{0}开始按序自增的。
+この例では、\ascii{Task}のインデックスは明示的に指定されていません。デフォルトでは、\ascii{Job}の\ascii{Task}セット内で、\ascii{Task}インデックスは0から始まり、順番に自動増加します。
 
-\subsubsection{Protobuf描述}
+\subsubsection{Protobuf記述}
 
 \begin{leftbar}
 \begin{python}
@@ -224,21 +226,21 @@ message ClusterDef {
 \end{python}
 \end{leftbar}
 
-其中，\code{tasks}的关键字表示\code{task\_index}，值表示\code{host:port}。
+そのうち、\code{tasks}のキーは\code{task\_index}を表し、値は\code{host:port}を表します。
 
 \end{content}
 
-\section{Master服务}
+\section{Masterサービス}
 
 \begin{content}
 
-\code{MasterService}是一个\ascii{RPC}服务。当\ascii{Client}根据\code{target}接入\ascii{Server}实例后，\ascii{Server}扮演了\ascii{Master}的角色，对外提供\code{MasterService}服务。
+\code{MasterService}は\ascii{RPC}サービスです。\ascii{Client}が\code{target}に基づいて\ascii{Server}インスタンスに接続すると、\ascii{Server}は\ascii{Master}の役割を果たし、外部に\code{MasterService}サービスを提供します。
 
-其中，\ascii{Client}与\ascii{Master}之间的交互遵循\code{MasterService}定义的接口规范。也就是说，\code{MasterService}定义了\ascii{Client}接入\ascii{Master}的公共契约，负责协调和控制多个\code{WorkerService}的执行过程。
+そのうち、\ascii{Client}と\ascii{Master}の間の相互作用は\code{MasterService}で定義されたインターフェース仕様に従います。つまり、\code{MasterService}は\ascii{Client}が\ascii{Master}にアクセスするための共通契約を定義し、複数の\code{WorkerService}の実行プロセスを調整および制御する責任を負います。
 
-\subsection{接口定义}
+\subsection{インターフェース定義}
 
-在\code{master\_service.proto}文件中，定义了\code{MasterService}的所有接口；而在\code{master.proto}文件中，定义了各个接口的消息体。
+\code{master\_service.proto}ファイルでは、\code{MasterService}のすべてのインターフェースが定義されています。一方、\code{master.proto}ファイルでは、各インターフェースのメッセージボディが定義されています。
 
 \begin{leftbar}
 \begin{c++}
@@ -267,11 +269,11 @@ service MasterService {
 \end{c++}
 \end{leftbar}
 
-\subsection{访问服务}
+\subsection{サービスへのアクセス}
 
-一般地，\ascii{Client}使用接口\code{MasterInterface}获取远端\code{MasterService}的服务。特殊地，\code{MasterInterface}的所有接口都是同步接口，使得\ascii{Client}访问远端\code{MasterService}服务犹如调用本地函数一般。
+一般的に、\ascii{Client}はインターフェース\code{MasterInterface}を使用してリモートの\code{MasterService}サービスを取得します。特に、\code{MasterInterface}のすべてのインターフェースは同期インターフェースであり、\ascii{Client}がリモートの\code{MasterService}サービスにアクセスするのがローカル関数を呼び出すかのようになります。
 
-需要注意的是，因为\code{RunStepRequest/RunStepResponse}消息中可能包含较大的\code{Tensor}实例。为了避免不必要的对象拷贝，实现特化实现了消息包装器。
+注意すべきは、\code{RunStepRequest/RunStepResponse}メッセージには比較的大きな\code{Tensor}インスタンスが含まれている可能性があるため、不要なオブジェクトのコピーを避けるために、メッセージラッパーの特殊な実装が行われています。
 
 \begin{leftbar}
 \begin{c++}
@@ -352,11 +354,11 @@ struct MasterInterface {
 \end{c++}
 \end{leftbar}
 
-如\refig{dist-master-interface}所示，\code{MasterInterface}存在两种基本实现。
+図\refig{dist-master-interface}に示すように、\code{MasterInterface}には2つの基本的な実装が存在します。
 
 \begin{enum}
-  \eitem{分布式：基于\ascii{gRPC}的\code{GrpcRemoteMaster}实现，\ascii{Client}与\ascii{Master}分别部署在两个不同的进程；}
-  \eitem{本地模式：基于函数调用的\code{LocalMaster}实现，\ascii{Client}与\ascii{Master}在同一个进程内。}
+  \eitem{分散：\ascii{gRPC}ベースの\code{GrpcRemoteMaster}実装、\ascii{Client}と\ascii{Master}は2つの異なるプロセスにデプロイされます。}
+  \eitem{ローカルモード：関数呼び出しベースの\code{LocalMaster}実装、\ascii{Client}と\ascii{Master}は同じプロセス内にあります。}
 \end{enum}
 
 \begin{figure}[H]
@@ -366,7 +368,7 @@ struct MasterInterface {
  \label{fig:dist-master-interface}
 \end{figure}
 
-在分布式模式中，\code{GrpcRemoteMaster}使用如下类似的伪代码，并通过\ascii{gRPC}获取远端\code{MasterService}服务。
+分散モードでは、\code{GrpcRemoteMaster}は以下のような擬似コードを使用し、\ascii{gRPC}を通じてリモートの\code{MasterService}サービスを取得します。
 
 \begin{leftbar}
 \begin{c++}
@@ -379,34 +381,34 @@ stub->CloseSession({handle})
 \end{c++}
 \end{leftbar}
 
-\subsection{RPC过程}
+\subsection{RPCプロセス}
 
-如\refig{dist-client-master-interaction}所示，\ascii{Client}通过\code{MasterInterface}获取远端\ascii{MasterService}的服务。
+図\refig{dist-client-master-interaction}に示すように、\ascii{Client}は\code{MasterInterface}を通じてリモートの\ascii{MasterService}サービスを取得します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/dist-client-master-interaction.png}
-\caption{Client获取MasterService的原理}
+\caption{ClientがMasterServiceを取得する原理}
  \label{fig:dist-client-master-interaction}
 \end{figure}
 
-其中，\code{GrpcRemoteMaster}是\ascii{gRPC}客户端的一种实现，它最终通过\code{Stub}获取远端\ascii{Master}上的\code{GrpcMasterService}服务，使得其行为表现得犹如本地函数调用一般。其中，\code{GrpcMasterService}实现了\code{MasterService}定义的所有服务接口，它是\code{MasterService}真正的服务实体。
+そのうち、\code{GrpcRemoteMaster}は\ascii{gRPC}クライアントの一種の実装であり、最終的に\code{Stub}を通じてリモートの\ascii{Master}上の\code{GrpcMasterService}サービスを取得し、その動作がローカル関数呼び出しのように見えるようにします。そのうち、\code{GrpcMasterService}は\code{MasterService}で定義されたすべてのサービスインターフェースを実装しており、\code{MasterService}の実際のサービスエンティティです。
 
 \begin{remark}
-从严格意义上讲，\script{GrpcSession, ClientMaster, GrpcRemoteMaster}都是\ascii{Client}实现的一部分。而不是通常理解的那样，\ascii{Python}前端系统是完整的\ascii{Client}实现，后端\ascii{C++}后端系统不包括\ascii{Client}的任何实现。
+厳密に言えば、\script{GrpcSession, ClientMaster, GrpcRemoteMaster}はすべて\ascii{Client}実装の一部です。通常理解されているような、\ascii{Python}フロントエンドシステムが完全な\ascii{Client}実装であり、バックエンドの\ascii{C++}システムには\ascii{Client}の実装が含まれていないということではありません。
 \end{remark}
 
-\subsection{消息定义}
+\subsection{メッセージ定義}
 
-接下来，将详细看看各个接口的消息定义。其中，最重要的就是识别出各个服务的标识。例如，\ascii{Master}可以供多个\ascii{Client}接入，并为每个\ascii{Client}生成对应的\code{MasterSession}实例。因此\code{GrpcSession}持有\code{MasterSession}句柄，实现\ascii{Client}获取\ascii{Master}的服务。
+次に、各インターフェースのメッセージ定義を詳しく見ていきます。そのうち、最も重要なのは各サービスの識別子を認識することです。例えば、\ascii{Master}は複数の\ascii{Client}からアクセスでき、各\ascii{Client}に対応する\code{MasterSession}インスタンスを生成します。したがって、\code{GrpcSession}は\code{MasterSession}ハンドルを保持し、\ascii{Client}が\ascii{Master}のサービスを取得できるようにしています。
 
 \subsubsection{CreateSession}
 
-如\refig{dist-ms-create-sess-req}所示，\code{CreateSessionRequest}消息中携带初始的计算图，并与\code{target}指定的\ascii{Master}建立连接。当\ascii{Master}收到请求消息后，建立一个相对应的\code{MasterSession}实例，并使用\code{session\_handle}唯一地标识该\code{MasterSession}实例。
+図\refig{dist-ms-create-sess-req}に示すように、\code{CreateSessionRequest}メッセージには初期の計算グラフが含まれており、\code{target}で指定された\ascii{Master}との接続を確立します。\ascii{Master}がリクエストメッセージを受信すると、対応する\code{MasterSession}インスタンスを作成し、\code{session\_handle}を使用してその\code{MasterSession}インスタンスを一意に識別します。
 
-待\ascii{Master}逻辑处理完成后，通过返回消息\code{CreateSessionResponse}给\ascii{Client}。其中，\code{CreateSessionResponse}消息中携带\code{session\_handle}，通过它\ascii{Client}端的\code{GrpcSession}与\ascii{Master}端的\code{MasterSession}建立关联关系。随后，\ascii{Client}与\ascii{Master}的所有交互中，在请求消息中通过携带\code{session\_handle}，\ascii{Master}通过它索引与之相对应的\ascii{MasterSession}实例。
+\ascii{Master}の論理処理が完了すると、\code{CreateSessionResponse}メッセージを通じて\ascii{Client}に返します。そのうち、\code{CreateSessionResponse}メッセージには\code{session\_handle}が含まれており、これを通じて\ascii{Client}側の\code{GrpcSession}と\ascii{Master}側の\code{MasterSession}の関連付けが確立されます。その後、\ascii{Client}と\ascii{Master}のすべての相互作用において、リクエストメッセージに\code{session\_handle}を含めることで、\ascii{Master}はそれを通じて対応する\code{MasterSession}インスタンスをインデックスします。
 
-此外，\code{CreateSessionResponse}也携带了初始的\code{graph\_version}，用于后续发起\code{ExtendSession}操作，往原始的计算图中追加新的节点。
+また、\code{CreateSessionResponse}には初期の\code{graph\_version}も含まれており、これは後続の\code{ExtendSession}操作で元の計算グラフに新しいノードを追加するために使用されます。
 
 \begin{figure}[H]
 \centering
@@ -432,9 +434,9 @@ message CreateSessionResponse {
 
 \subsubsection{ExtendSession}
 
-当\ascii{CreateSession}成功后，后续\ascii{Client}可以通过\code{ExtendSession}，携带待扩展的子图给\ascii{Master}，增加原有计算图的规模(只能追加子图，不能修改或删除节点)。
+\ascii{CreateSession}が成功した後、後続の\ascii{Client}は\code{ExtendSession}を通じて、拡張するサブグラフを\ascii{Master}に送信し、元の計算グラフの規模を拡大することができます（サブグラフを追加することしかできず、ノードの修正や削除はできません）。
 
-如\refig{dist-ms-extend-sess-req}所示，在请求消息中需要携带\code{current\_graph\_version}，\ascii{Master}端进行版本匹配验证；待\code{ExtendSession}的逻辑处理完成后，在响应消息中携带\code{new\_graph\_version}，用于下一此\code{ExtendSession}操作。其中，初始的\code{graph\_version}由\code{CreateSessionResponse}携带给\ascii{Client}的。
+図\refig{dist-ms-extend-sess-req}に示すように、リクエストメッセージには\code{current\_graph\_version}を含める必要があり、\ascii{Master}側でバージョンの一致を検証します。\code{ExtendSession}の論理処理が完了すると、レスポンスメッセージに\code{new\_graph\_version}が含まれ、次回の\code{ExtendSession}操作に使用されます。そのうち、初期の\code{graph\_version}は\code{CreateSessionResponse}によって\ascii{Client}に送られます。
 
 \begin{figure}[H]
 \centering
@@ -470,7 +472,7 @@ message ExtendSessionResponse {
 
 \subsubsection{RunStep}
 
-一般地，在客户端迭代地执行\code{RunStep}。如\refig{dist-ms-run-step-req}所示，在每一次\code{RunStep}执行过程中，\ascii{Client}在请求消息中携带\code{feed, fetch, target}，分别表示输入的\ascii{NamedTensor}列表，待输出\ascii{Tensor}的名称列表，待执行\ascii{OP}的名称列表；在响应消息中携带\code{tensor}，表示对应于\code{fetch}的名字列表，输出的\ascii{Tensor}列表。
+一般的に、クライアント側で\code{RunStep}を繰り返し実行します。図\refig{dist-ms-run-step-req}に示すように、各\code{RunStep}の実行プロセスで、\ascii{Client}はリクエストメッセージに\code{feed, fetch, target}を含めます。これらはそれぞれ入力の\ascii{NamedTensor}リスト、出力する\ascii{Tensor}の名前リスト、実行する\ascii{OP}の名前リストを表します。レスポンスメッセージには\code{tensor}が含まれており、\code{fetch}の名前リストに対応する出力の\ascii{Tensor}リストを表します。
 
 \begin{figure}[H]
 \centering
@@ -501,7 +503,7 @@ message RunStepResponse {
 
 \subsubsection{CloseSession}
 
-当计算完成后，需要关闭会话，释放系统计算资源。如\refig{dist-ms-closs-sess}所示，\ascii{Client}通过发送\code{CloseSession}给\ascii{Master}，启动计算资源的释放过程。
+計算が完了したら、セッションを閉じて、システムの計算リソースを解放する必要があります。図\refig{dist-ms-closs-sess}に示すように、\ascii{Client}は\code{CloseSession}を\ascii{Master}に送信して、計算リソースの解放プロセスを開始します。
 
 \begin{figure}[H]
 \centering
@@ -523,19 +525,19 @@ message CloseSessionResponse {
 
 \end{content}
 
-\section{Worker服务}
+\section{Workerサービス}
 
 \begin{content}
 
-\code{WorkerService}也是一个\ascii{gRPC}服务，负责调度本地设备集执行本地子图。它定义了接入\ascii{Worker}的接口规范，即\code{master\_service.proto}中定义的接口。
+\code{WorkerService}も\ascii{gRPC}サービスであり、ローカルデバイスセットでローカルサブグラフの実行をスケジュールする責任があります。これは\ascii{Worker}へのアクセスのインターフェース仕様を定義しています。つまり、\code{master\_service.proto}で定義されたインターフェースです。
 
-\ascii{Master}根据\code{ClusterSpec}信息，找到集群中其他的\ascii{Server}实例，此时这些\ascii{Server}实例将扮演\ascii{Worker}的角色。\ascii{Master}将子图分发给各个\ascii{Worker}节点，并启动各个\ascii{Worker}节点的子图计算的执行过程。
+\ascii{Master}は\code{ClusterSpec}情報に基づいて、クラスター内の他の\ascii{Server}インスタンスを見つけます。この時、これらの\ascii{Server}インスタンスは\ascii{Worker}の役割を果たします。\ascii{Master}はサブグラフを各\ascii{Worker}ノードに分散し、各\ascii{Worker}ノードのサブグラフ計算の実行プロセスを開始します。
 
-如果\ascii{Worker}之间存在数据依赖，则通过进程间通信完成交互。其中，\ascii{Master}与\ascii{Worker}之间，\ascii{Worker}与\ascii{Worker}之间的交互遵循\code{WorkerService}定义的接口规范。
+\ascii{Worker}間にデータ依存関係が存在する場合、プロセス間通信を通じて対話を完了します。そのうち、\ascii{Master}と\ascii{Worker}の間、\ascii{Worker}と\ascii{Worker}の間の対話は\code{WorkerService}で定義されたインターフェース仕様に従います。
 
-\subsection{接口定义}
+\subsection{インターフェース定義}
 
-在\code{worker\_service.proto}文件中，定义了\code{WorkerService}的所有接口；而在\code{worker.proto}文件中，定义了各个接口的消息体。
+\code{worker\_service.proto}ファイルでは、\code{WorkerService}のすべてのインターフェースが定義されています。一方、\code{worker.proto}ファイルでは、各インターフェースのメッセージボディが定義されています。
 
 \begin{leftbar}
 \begin{c++}
@@ -574,9 +576,9 @@ service WorkerService {
 \end{c++}
 \end{leftbar}
 
-\subsection{访问服务}
+\subsection{サービスへのアクセス}
 
-一般地，\ascii{Master/Worker}使用接口\code{WorkerInterface}获取远端\code{WorkerService}的服务。其中，\code{WorkerInterface}定义了异步访问\code{WorkerService}的接口；与\code{MasterInterface}类似，因为\code{RunGraphRequest/RunGraphResponse}中可能含有较大的\code{Tensor}，为了避免不必要的对象拷贝，特化了实现了消息的包装器。
+一般的に、\ascii{Master/Worker}はインターフェース\code{WorkerInterface}を使用してリモートの\code{WorkerService}サービスを取得します。そのうち、\code{WorkerInterface}は\code{WorkerService}への非同期アクセスのインターフェースを定義しています。\code{MasterInterface}と同様に、\code{RunGraphRequest/RunGraphResponse}に比較的大きな\code{Tensor}が含まれている可能性があるため、不要なオブジェクトのコピーを避けるために、メッセージのラッパーの特殊な実装が行われています。
 
 \begin{leftbar}
 \begin{c++}
@@ -671,8 +673,7 @@ struct WorkerInterface {
 \end{c++}
 \end{leftbar}
 
-
-\code{WorkerInterface}同时也定义了同步访问接口。同步接口通过\code{CallAndWait}的适配器，间接实现于异步接口之上。特殊地，同步接口使得\ascii{Master/Worker}调用远端\code{WorkerService}具有犹如调用本地函数一般。
+\code{WorkerInterface}は同期アクセスインターフェースも定義しています。同期インターフェースは\code{CallAndWait}アダプタを通じて、間接的に非同期インターフェース上に実装されています。特に、同期インターフェースにより、\ascii{Master/Worker}がリモートの\code{WorkerService}を呼び出すのが、ローカル関数を呼び出すかのようになります。
 
 \begin{leftbar}
 \begin{c++}
@@ -744,7 +745,7 @@ struct WorkerInterface {
 \end{c++}
 \end{leftbar}
 
-特殊地，\code{WorkerInterface}生成的实例由\code{WorkerCacheInterface::ReleaseWorker}负责删除。因此，此处为了避免外部非法删除\code{WorkerInterface}实例，限制\code{WorkerInterface}的析构函数为\code{protected}，并且声明\code{WorkerCacheInterface}为友元。
+特に、\code{WorkerInterface}で生成されたインスタンスは\code{WorkerCacheInterface::ReleaseWorker}が削除の責任を負います。したがって、ここでは外部による\code{WorkerInterface}インスタンスの不正な削除を避けるために、\code{WorkerInterface}のデストラクタを\code{protected}に制限し、\code{WorkerCacheInterface}をフレンドとして宣言しています。
 
 \begin{leftbar}
 \begin{c++}
@@ -756,51 +757,51 @@ struct WorkerInterface {
 \end{c++}
 \end{leftbar}
 
-如\refig{dist-worker-interface}所示，\code{WorkerService}存在两种实现。其中，在本地模式中，直接使用\code{GrpcWorker}；在分布式模式中，\ascii{Worker}部署在另一个不同的进程内，使用\code{GrpcRemoteWorker}。
+図\refig{dist-worker-interface}に示すように、\code{WorkerService}には2つの実装が存在します。そのうち、ローカルモードでは直接\code{GrpcWorker}を使用します。分散モードでは、\ascii{Worker}は別のプロセス内にデプロイされ、\code{GrpcRemoteWorker}を使用します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/dist-worker-interface.png}
-\caption{\code{WorkerInterface}接口}
+\caption{\code{WorkerInterface}インターフェース}
  \label{fig:dist-worker-interface}
 \end{figure}
 
-\subsection{RPC过程}
+\subsection{RPCプロセス}
 
-如\refig{dist-worker-interaction}所示，在分布式模式中，\code{GrpcRemoteWorker}是\ascii{gRPC}客户端的一种实现，它最终通过\code{Stub}获取远端\ascii{Worker}上的\code{GrpcWorkerService}服务，使得其行为表现得犹如本地函数调用一般。其中，\code{GrpcWorkerService}实现了\code{WorkerService}定义的所有服务接口。
+図\refig{dist-worker-interaction}に示すように、分散モードでは、\code{GrpcRemoteWorker}は\ascii{gRPC}クライアントの一種の実装であり、最終的に\code{Stub}を通じてリモートの\ascii{Worker}上の\code{GrpcWorkerService}サービスを取得し、その動作がローカル関数呼び出しのように見えるようにします。そのうち、\code{GrpcWorkerService}は\code{WorkerService}で定義されたすべてのサービスインターフェースを実装しています。
 
 \begin{remark}
-从严格意义上讲，\script{GrpcRemoteWorker}是\ascii{Master}或者对端\ascii{Worker}实现的一部分。
+厳密に言えば、\script{GrpcRemoteWorker}は\ascii{Master}または対向の\ascii{Worker}実装の一部です。
 \end{remark}
 
-而在本地模式中，通过\code{GrpcWorker}的函数调用，直接获取到了\ascii{WorkerService}的服务，避免了额外的网络传输开销。
+一方、ローカルモードでは、\code{GrpcWorker}の関数呼び出しを通じて、直接\ascii{WorkerService}のサービスを取得し、追加のネットワーク転送のオーバーヘッドを避けています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/dist-worker-interaction.png}
-\caption{获取\code{MasterService}的RPC过程}
+\caption{\code{MasterService}を取得するRPCプロセス}
  \label{fig:dist-worker-interaction}
 \end{figure}
 
-\subsection{消息定义}
+\subsection{メッセージ定義}
 
-接下来，将详细看看\code{WorkerService}各个接口的消息定义。其中，最重要的就是识别出各个服务的标识。当创建\code{WorkerSession}时，\code{MasterSession}的标识传递给\ascii{Worker}，实现了\code{MasterSession}统一管理多个隶属的\code{WorkerSession}实例。
+次に、\code{WorkerService}の各インターフェースのメッセージ定義を詳しく見ていきます。そのうち、最も重要なのは各サービスの識別子を認識することです。\code{WorkerSession}の作成時、\code{MasterSession}の識別子が\ascii{Worker}に渡され、\code{MasterSession}が複数の所属する\code{WorkerSession}インスタンスを統一管理できるようになります。
 
-当\code{Worker}首次完成\code{RegisterGraph}后，向\code{Master}返回唯一的\code{graph\_handle}，以此标识该图实例。因此，在集群内可以使用\code{(session\_handle, graph\_handle)}二元组唯一标识该图实例。
+\ascii{Worker}が初めて\code{RegisterGraph}を完了すると、\ascii{Master}に一意の\code{graph\_handle}を返し、そのグラフインスタンスを識別します。したがって、クラスター内では\code{(session\_handle, graph\_handle)}の2つ組を使用して、そのグラフインスタンスを一意に識別できます。
 
-当\ascii{Master}广播通知各个\ascii{Worker}并发地\code{RunGraph}。为了区分不同\code{step}，\ascii{Master}生成全局唯一的\code{step\_id}，并通过\code{RunGraph}传递给各个\ascii{Worker}。
+\ascii{Master}が各\ascii{Worker}に並行して\code{RunGraph}を実行するよう通知する際、異なる\code{step}を区別するために、\ascii{Master}はグローバルに一意の\code{step\_id}を生成し、\code{RunGraph}を通じて各\ascii{Worker}に渡します。
 
 \begin{enum}
-  \eitem{\code{session\_handle}: 创建\code{MasterSession}实例时自动生成，通过\code{CreateSessionResponse}携带给\ascii{Client}；通过\code{CreateWorkerSessionRequest}携带给\ascii{Worker}；}  
-  \eitem{\code{graph\_id}: 首次\code{RegisterGraph}时由\code{Worker}生成，通过\code{RegisterGraphResponse}携带给\code{Master}；}
-  \eitem{\code{step\_id}: 每次\code{RunStep}时，由\code{Master}生成唯一的标识，通过\code{RunGraphRequest}携带给\ascii{Worker}。} 
+  \eitem{\code{session\_handle}: \code{MasterSession}インスタンスの作成時に自動生成され、\code{CreateSessionResponse}を通じて\ascii{Client}に渡されます。\code{CreateWorkerSessionRequest}を通じて\ascii{Worker}に渡されます。}  
+  \eitem{\code{graph\_id}: 初回の\code{RegisterGraph}時に\code{Worker}によって生成され、\code{RegisterGraphResponse}を通じて\code{Master}に渡されます。}
+  \eitem{\code{step\_id}: 毎回の\code{RunStep}時に\code{Master}が一意の識別子を生成し、\code{RunGraphRequest}を通じて\ascii{Worker}に渡されます。} 
 \end{enum}
 
 \subsubsection{CreateWorkerSession}
 
-如\refig{dist-worker-create-worker-sess}所示，\code{CreateWorkerSessionRequest}消息中携带\code{MasterSession}分配的\code{session\_handle}。当\ascii{Worker}收到请求消息后，生成一个\code{WorkerSession}实例，并使用\code{session\_handle}在该\ascii{Worker}内唯一地标识该实例。
+図\refig{dist-worker-create-worker-sess}に示すように、\code{CreateWorkerSessionRequest}メッセージには\code{MasterSession}が割り当てた\code{session\_handle}が含まれています。\ascii{Worker}がリクエストメッセージを受信すると、\code{WorkerSession}インスタンスを生成し、\code{session\_handle}を使用してその\ascii{Worker}内でそのインスタンスを一意に識別します。
 
-在同一个集群中，对于一个\code{MasterSession}实例，其他\ascii{Worker}收到相同的\code{session\_handle}。如此，该\code{MasterSession}实例便能统一管理隶属于它的所有\code{WorkerSession}实例。
+同じクラスター内で、1つの\code{MasterSession}インスタンスに対して、他の\ascii{Worker}は同じ\code{session\_handle}を受け取ります。このようにして、その\code{MasterSession}インスタンスはそれに所属するすべての\code{WorkerSession}インスタンスを統一管理できるようになります。
 
 \begin{figure}[H]
 \centering
@@ -823,9 +824,9 @@ message CreateWorkerSessionResponse {
 
 \subsubsection{RegisterGraph}
 
-如\refig{dist-worker-register-graph}所示，\code{RegisterGraphRequest}消息中携带\code{MasterSession}分配的\code{session\_handle}，及其子图实例\ascii{graph\_def}。当\code{Worker}完成子图注册及其初始化后，向\ascii{Master}返回该子图的\code{graph\_handle}。
+図\refig{dist-worker-register-graph}に示すように、\code{RegisterGraphRequest}メッセージには\code{MasterSession}が割り当てた\code{session\_handle}と、そのサブグラフインスタンス\ascii{graph\_def}が含まれています。\code{Worker}がサブグラフの登録と初期化を完了すると、\ascii{Master}にそのサブグラフの\code{graph\_handle}を返します。
 
-需要注意的是，\code{Master}只会在执行一次\code{RegisterGraph}，除非计算图的节点被重新编排，或者\code{Master}进程被重启。
+注意すべきは、\code{Master}は\code{RegisterGraph}を1回だけ実行するということです。計算グラフのノードが再スケジュールされるか、\code{Master}プロセスが再起動されない限り実行されません。
 
 \begin{figure}[H]
 \centering
@@ -852,10 +853,9 @@ message RegisterGraphResponse {
 \end{c++}
 \end{leftbar}
 
-
 \subsubsection{DeregisterGraph}
 
-如\refig{dist-worker-deregister-graph}所示，当\code{Worker}节点上的子图不再需要时(例如，计算图被重新调度，图中节点被重新编排)，此时\code{Master}向\ascii{Worker}发送\code{DeregisterGraph}消息，以便\code{Worker}注销掉该子图实例。
+図\refig{dist-worker-deregister-graph}に示すように、\code{Worker}ノード上のサブグラフが不要になったとき（例えば、計算グラフが再スケジュールされ、グラフ内のノードが再配置された場合）、\code{Master}は\ascii{Worker}に\code{DeregisterGraph}メッセージを送信し、\code{Worker}がそのサブグラフインスタンスを登録解除できるようにします。
 
 \begin{figure}[H]
 \centering
@@ -878,9 +878,9 @@ message DeregisterGraphResponse {
 
 \subsubsection{RunGraph}
 
-执行\ascii{Worker}节点上注册的子图时，为了区分不同\code{step}，\ascii{Master}生成唯一\code{step\_id}并传递给各个\ascii{Worker}，各个\ascii{Worker}通过\code{step\_id}实现数据的协同。
+\ascii{Worker}ノード上に登録されたサブグラフを実行する際、異なる\code{step}を区別するために、\ascii{Master}は一意の\code{step\_id}を生成し、各\ascii{Worker}に渡します。各\ascii{Worker}は\code{step\_id}を通じてデータの協調を実現します。
 
-此外，\code{RunGraphRequest}携带了\code{send, recv\_key}，分别表示子图输入的\code{Tensor}标识和数据，及其子图输出的\code{Tensor}的标识。\code{RunGraphResponse}返回\code{recv\_key}相对应的\code{Tensor}列表。
+さらに、\code{RunGraphRequest}には\code{send, recv\_key}が含まれており、それぞれサブグラフの入力\code{Tensor}の識別子とデータ、およびサブグラフの出力\code{Tensor}の識別子を表します。\code{RunGraphResponse}は\code{recv\_key}に対応する\code{Tensor}リストを返します。
 
 \begin{figure}[H]
 \centering
@@ -918,7 +918,7 @@ message RunGraphResponse {
 
 \subsubsection{RecvTensor}
 
-当执行某一次\code{step}中，如果两个\ascii{Worker}需要交互数据，消费者向生产者发送\code{RecvTensorRequest}消息，通过携带\code{(step\_id, rendezvous\_key)}二元组，请求对端\ascii{Worker}相应的\code{Tensor}数据，并通过\code{RecvTensorResponse}返回。
+ある\code{step}の実行中に、2つの\ascii{Worker}がデータを交換する必要がある場合、消費者は生産者に\code{RecvTensorRequest}メッセージを送信し、\code{(step\_id, rendezvous\_key)}の2つ組を含めて、対向の\ascii{Worker}の対応する\code{Tensor}データをリクエストし、\code{RecvTensorResponse}を通じて返します。
 
 \begin{figure}[H]
 \centering
@@ -967,30 +967,30 @@ message RecvTensorResponse {
 
 \end{content}
 
-\section{服务器}
+\section{サーバー}
 
 \begin{content}
 
-\code{Server}是一个基于\ascii{gRPC}的服务器，负责管理本地设备集。它对外提供\code{MasterService}服务和\code{WorkerService}服务，具有同时扮演\ascii{Master}和\ascii{Worker}的角色。
+\code{Server}は\ascii{gRPC}ベースのサーバーで、ローカルデバイスセットの管理を担当します。外部に\code{MasterService}サービスと\code{WorkerService}サービスを提供し、\ascii{Master}と\ascii{Worker}の両方の役割を果たす能力があります。
 
-\subsection{领域模型}
+\subsection{ドメインモデル}
 
-如\refig{cc-server-model}所示，\code{GrpcServer}扮演\ascii{Master}的角色时，对外提供\code{MasterService}服务；其中，它为每一个接入的\ascii{Client}启动一个\code{MasterSession}实例，并使用全局唯一的\code{session\_handle}标识它。也就是说，\ascii{Master}可以接入多个\ascii{Client}，而一个\ascii{Client}则只能接入一个特定的\ascii{Master}。
+図\refig{cc-server-model}に示すように、\code{GrpcServer}が\ascii{Master}の役割を果たす場合、外部に\code{MasterService}サービスを提供します。そのうち、アクセスする各\ascii{Client}に対して\code{MasterSession}インスタンスを起動し、グローバルに一意の\code{session\_handle}でそれを識別します。つまり、\ascii{Master}は複数の\ascii{Client}からアクセスできますが、1つの\ascii{Client}は特定の\ascii{Master}にのみアクセスできます。
 
-\code{GrpcServer}扮演\ascii{Worker}的角色时，对外提供\code{WorkerService}服务；其中，每个\ascii{Worker}可以为多个\ascii{Master}提供计算服务，它为每个向它请求计算服务的\code{MasterSession}生成一个相应的\code{WorkerSession}实例，等待相应的\code{MasterSession}下发计算图的\emph{注册}和\emph{执行}命令。
+\code{GrpcServer}が\ascii{Worker}の役割を果たす場合、外部に\code{WorkerService}サービスを提供します。そのうち、各\ascii{Worker}は複数の\ascii{Master}に計算サービスを提供でき、計算サービスをリクエストする各\code{MasterSession}に対して対応する\code{WorkerSession}インスタンスを生成し、対応する\code{MasterSession}からの計算グラフの\emph{登録}と\emph{実行}コマンドを待ちます。
 
-整个\code{GrpcServer}实例承载于\code{grpc::Server}进程之上，它监听特定端口的消息，当消息到达时自动派发到\code{MasterService}或\code{WorkerService}中相应的消息处理的回调函数。
+\code{GrpcServer}インスタンス全体は\code{grpc::Server}プロセス上に搭載され、特定のポートのメッセージを監視し、メッセージが到着すると自動的に\code{MasterService}または\code{WorkerService}の対応するメッセージ処理コールバック関数にディスパッチします。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/cc-server-model.png}
-\caption{Server领域模型}
+\caption{Serverドメインモデル}
  \label{fig:cc-server-model}
 \end{figure}
 
-\subsubsection{Protobuf描述}
+\subsubsection{Protobuf記述}
 
-当\code{protocol}为\code{grpc}时，系统运行时将启用基于\ascii{gRPC}实现的\code{GrpcServer}实例。此外，可以通过\code{ConfigProto}实现运行时参数的配置。也就是说，\tf{}的架构是对外开放的。例如，通过扩展\code{protocol}支持新的通信协议，实现基于新协议的\code{Server}实例。
+\code{protocol}が\code{grpc}の場合、システムランタイムは\ascii{gRPC}実装ベースの\code{GrpcServer}インスタンスを有効にします。さらに、\code{ConfigProto}を通じてランタイムパラメータの設定を実現できます。つまり、\tf{}のアーキテクチャは外部に開放されています。例えば、\code{protocol}の拡張を通じて新しい通信プロトコルをサポートし、新しいプロトコルベースの\code{Server}インスタンスを実装できます。
 
 \begin{leftbar}
 \begin{python}
@@ -1006,56 +1006,56 @@ message ServerDef {
 \end{python}
 \end{leftbar}
 
-\subsubsection{服务互联}
+\subsubsection{サービスの相互接続}
 
-如\refig{cc-server-interact}所示，一个\ascii{Server}实例通过\code{tf.train.ClusterSpec}与集群中的其他\ascii{Server}实例实现互联。
+図\refig{cc-server-interact}に示すように、1つの\ascii{Server}インスタンスは\code{tf.train.ClusterSpec}を通じてクラスター内の他の\ascii{Server}インスタンスと相互接続を実現します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/cc-server-interact.png}
-\caption{服务互联}
+\caption{サービスの相互接続}
  \label{fig:cc-server-interact}
 \end{figure}
 
-如\refig{cc-server-interact-1}所示，当\ascii{Client}接入其中一个\ascii{Server}，此时它扮演了\ascii{Master}的角色，其他\ascii{Server}则扮演了\ascii{Worker}的角色。特殊地，\ascii{Client}接入的\ascii{Server}也扮演了\ascii{Worker}的角色。
+図\refig{cc-server-interact-1}に示すように、\ascii{Client}がいずれかの\ascii{Server}にアクセスすると、そのサーバーは\ascii{Master}の役割を果たし、他の\ascii{Server}は\ascii{Worker}の役割を果たします。特に、\ascii{Client}がアクセスする\ascii{Server}も\ascii{Worker}の役割を果たします。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/cc-server-interact-1.png}
-\caption{单Client接入集群}
+\caption{単一Clientがクラスターにアクセス}
  \label{fig:cc-server-interact-1}
 \end{figure}
 
-如\refig{cc-server-interact-2}所示，可能存在多个\ascii{Client}分别接入不同的\ascii{Server}实例。此时，\ascii{Client}接入的\ascii{Server}实例扮演了\ascii{Master}角色。但是，该\ascii{Server}实例，相对于集群中另外的\ascii{Server}实例，则扮演了\ascii{Worker}角色。
+図\refig{cc-server-interact-2}に示すように、複数の\ascii{Client}が異なる\ascii{Server}インスタンスにそれぞれアクセスする可能性があります。この時、\ascii{Client}がアクセスする\ascii{Server}インスタンスは\ascii{Master}の役割を果たします。しかし、そのの\ascii{Server}インスタンスは、クラスター内の他の\ascii{Server}インスタンスに対しては\ascii{Worker}の役割を果たします。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/cc-server-interact-2.png}
-\caption{多Client接入集群}
+\caption{複数Clientがクラスターにアクセス}
  \label{fig:cc-server-interact-2}
 \end{figure}
 
-特殊地，\ascii{Client}与\ascii{Master}可以部署在同一个进程内。此时，\ascii{Client}与\ascii{Master}之间的交互更加简单，两者直接使用函数调用，避免了\ascii{gRPC}交互的额外开销。依次类推，在同一个\ascii{Server}内，\ascii{Master}与\ascii{Worker}可以部署在同一进程内。此时，\ascii{Master}与\ascii{Worker}之间直接使用函数调用。
+特に、\ascii{Client}と\ascii{Master}は同じプロセス内にデプロイできます。この場合、\ascii{Client}と\ascii{Master}の間の対話はより簡単になり、両者は直接関数呼び出しを使用し、\ascii{gRPC}対話の追加オーバーヘッドを避けます。同様に、同じ\ascii{Server}内で、\ascii{Master}と\ascii{Worker}を同じプロセス内にデプロイすることができます。この場合、\ascii{Master}と\ascii{Worker}の間は直接関数呼び出しを使用します。
 
-\subsection{状态机}
+\subsection{状態機械}
 
-如\refig{dist-grpc-server-state-machine}所示，\code{GrpcServer}是一个基于\code{grpc::Server}的服务器，它管理和维护了一个简单的状态机。
+図\refig{dist-grpc-server-state-machine}に示すように、\code{GrpcServer}は\code{grpc::Server}ベースのサーバーで、シンプルな状態機械を管理および維持しています。
 
-\code{GrpcServer}在\code{New}状态上启动了\code{grpc::Server}服务，但对外并没有提供服务；而在\code{Started}状态上启动服务，对外提供\code{MasterService}和\code{WorkerService}的\code{RPC}消息服务；最终，在\code{Stopped}状态下停止\code{MasterService}和\code{WorkerService}服务。
+\code{GrpcServer}は\code{New}状態で\code{grpc::Server}サービスを起動しますが、外部にサービスを提供しません。\code{Started}状態でサービスを起動し、外部に\code{MasterService}と\code{WorkerService}の\code{RPC}メッセージサービスを提供します。最終的に、\code{Stopped}状態で\code{MasterService}と\code{WorkerService}サービスを停止します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/dist-grpc-server-state-machine.png}
-\caption{GrpcServer状态机}
+\caption{GrpcServer状態機械}
  \label{fig:dist-grpc-server-state-machine}
 \end{figure}
 
-\subsubsection{创建服务}
+\subsubsection{サービスの作成}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/dist-grpc-server-factory.png}
-\caption{多态创建Server实例}
+\caption{Serverインスタンスの多態的作成}
  \label{fig:dist-grpc-server-factory}
 \end{figure}
 
@@ -1087,27 +1087,27 @@ void GrpcServer::Create(
 \end{c++}
 \end{leftbar}
 
-如\refig{cc-server-model}所示，\code{GrpcServer::Init}将完成\code{GrpcServer}领域对象的初始化，主要包括如下\ascii{3}个基本过程。
+図\refig{cc-server-model}に示すように、\code{GrpcServer::Init}は\code{GrpcServer}ドメインオブジェクトの初期化を完了し、主に以下の3つの基本プロセスを含みます。
 
 \begin{enum}
-  \eitem{初始化\code{MasterEnv}实例；}  
-  \eitem{初始化\code{WorkerEnv}实例；}  
-  \eitem{创建并启动\code{grpc::Server}}    
+  \eitem{\code{MasterEnv}インスタンスの初期化;}  
+  \eitem{\code{WorkerEnv}インスタンスの初期化;}  
+  \eitem{\code{grpc::Server}の作成と起動}    
     \begin{enum}
-    \eitem{初始化\code{MasterService}}      
+    \eitem{\code{MasterService}の初期化}      
     \begin{nitemize}
-      \eitem{创建\code{Master}实例；}  
-      \eitem{创建\code{MasterService}实例；}
+      \eitem{\code{Master}インスタンスの作成;}  
+      \eitem{\code{MasterService}インスタンスの作成;}
     \end{nitemize}
-    \eitem{初始化\code{WorkerService}}          
+    \eitem{\code{WorkerService}の初期化}          
     \begin{nitemize}          
-      \eitem{创建\code{Worker}实例；}  
-      \eitem{创建\code{WorkerService}实例。}
+      \eitem{\code{Worker}インスタンスの作成;}  
+      \eitem{\code{WorkerService}インスタンスの作成。}
     \end{nitemize}      
     \end{enum}
 \end{enum}
 
-为了更好地理解整个\code{GrpcServer}实例的初始化过程，此处对实现做了局部的重构。首先，它初始化\code{MasterEnv, WorkerEnv}实例；然后，创建并启动\code{grpc::Server}服务器。
+\code{GrpcServer}インスタンスの初期化プロセス全体をよりよく理解するために、ここでは実装の一部を再構成しました。まず、\code{MasterEnv, WorkerEnv}インスタンスを初期化します。次に、\code{grpc::Server}サーバーを作成して起動します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1119,38 +1119,38 @@ void GrpcServer::Init() {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{初始化MasterEnv}
+\subsubsection{MasterEnvの初期化}
 
-\code{MasterEnv}持有\code{Master}运行时的上下文环境，它与\code{GrpcServer}具有相同的生命周期，因此整个\code{Master}的运行时都是可见的。
+\code{MasterEnv}は\code{Master}ランタイムのコンテキスト環境を保持し、\code{GrpcServer}と同じライフサイクルを持つため、\code{Master}のランタイム全体で可視です。
 
-如\refig{dist-master-env}所示，\code{LocalDevices}用于获取本地设备集；\code{WorkerCacheFactory}用于创建\code{WorkerCacheInterface}实例；\code{WorkerCacheInterface}用于创建\code{MasterInterface}实例，后者用于调用远端\code{MasterService}服务；\code{MasterSessionFactory}用于创建\code{MasterSession}实例；\code{OpRegisteryInterface}用于查询特定\code{OP}的元数据；\code{Env}用于获取跨平台的\ascii{API}接口。其中，下文将重点讨论\code{WorkerCacheInterface}的创建过程。
+図\refig{dist-master-env}に示すように、\code{LocalDevices}はローカルデバイスセットを取得するために使用されます。\code{WorkerCacheFactory}は\code{WorkerCacheInterface}インスタンスを作成するために使用されます。\code{WorkerCacheInterface}は\code{MasterInterface}インスタンスを作成するために使用され、後者はリモートの\code{MasterService}サービスを呼び出すために使用されます。\code{MasterSessionFactory}は\code{MasterSession}インスタンスを作成するために使用されます。\code{OpRegisteryInterface}は特定の\code{OP}のメタデータを照会するために使用されます。\code{Env}はクロスプラットフォームの\ascii{API}インターフェースを取得するために使用されます。そのうち、\code{WorkerCacheInterface}の作成プロセスについては後で詳しく説明します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/dist-master-env.png}
-\caption{\code{MasterEnv}模型}
+\caption{\code{MasterEnv}モデル}
  \label{fig:dist-master-env}
 \end{figure}
 
-\subsubsection{初始化WorkerEnv}
+\subsubsection{WorkerEnvの初期化}
 
-\code{WorkerEnv}持有\code{Worker}运行时的上下文环境，它与\code{GrpcServer}具有相同的生命周期，因此整个\code{Worker}的运行时都是可见的。
+\code{WorkerEnv}は\code{Worker}ランタイムのコンテキスト環境を保持し、\code{GrpcServer}と同じライフサイクルを持つため、\code{Worker}のランタイム全体で可視です。
 
-如\refig{dist-worker-env}所示，\code{LocalDevices}用于获取本地设备集；\code{DeviceManager}用于管理本地设备集和远端设备集；\code{SessionManager}用于管理\code{WorkerSession}的集合；\code{RendezvousManager}用于管理\code{Rendezvous}实例集；\code{ThreadPool}将会自动从计算池中分配一个线程，启动\ascii{OP}的\ascii{Kernel}算子的执行；\code{Env}用于获取跨平台的\ascii{API}接口。
+図\refig{dist-worker-env}に示すように、\code{LocalDevices}はローカルデバイスセットを取得するために使用されます。\code{DeviceManager}はローカルデバイスセットとリモートデバイスセットを管理するために使用されます。\code{SessionManager}は\code{WorkerSession}のコレクションを管理するために使用されます。\code{RendezvousManager}は\code{Rendezvous}インスタンスセットを管理するために使用されます。\code{ThreadPool}は計算プールから自動的にスレッドを割り当て、\ascii{OP}の\ascii{Kernel}演算子の実行を開始します。\code{Env}はクロスプラットフォームの\ascii{API}インターフェースを取得するために使用されます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/dist-worker-env.png}
-\caption{\code{WorkerEnv}模型}
+\caption{\code{WorkerEnv}モデル}
  \label{fig:dist-worker-env}
 \end{figure}
 
-\subsubsection{启动grpc::Server}
+\subsubsection{grpc::Serverの起動}
 
-系统实现采用构建器创建\code{grpc::Server}实例。首先，配置\code{grpc::Server}的服务选项；然后，分别构建\code{MasterService}实例和\code{WorkerService}实例。最后，调用\code{builder.BuildAndStart}方法启动\code{grpc::Server}服务器。
+システムの実装では、ビルダーパターンを使用して\code{grpc::Server}インスタンスを作成しています。まず、\code{grpc::Server}のサービスオプションを設定します。次に、\code{MasterService}インスタンスと\code{WorkerService}インスタンスをそれぞれ構築します。最後に、\code{builder.BuildAndStart}メソッドを呼び出して\code{grpc::Server}サーバーを起動します。
 
-需要注意的是，\code{grpc::Server}启动时，\code{GrpcServer}依然处于\code{New}状态，
-\code{grpc::Server}暂时还未对外提供\code{MasterService}服务和\code{WorkerService}服务。直至\code{GrpcServer}迁移至\code{Started}状态位置，\code{grpc::Server}才真正对外提供\code{MasterService}服务和\code{WorkerService}服务。
+注意すべきは、\code{grpc::Server}起動時、\code{GrpcServer}はまだ\code{New}状態にあり、
+\code{grpc::Server}はまだ外部に\code{MasterService}サービスと\code{WorkerService}サービスを提供していないということです。\code{GrpcServer}が\code{Started}状態に移行するまで、\code{grpc::Server}は実際に外部に\code{MasterService}サービスと\code{WorkerService}サービスを提供します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1175,7 +1175,7 @@ void GrpcServer::StartGrpcServer() {
 \end{c++}
 \end{leftbar}
 
-很容易发现，\code{grpc::Server}对外提供\code{MasterService}服务的实体是\code{GrpcMasterService}实例。当消息到达时，将自动回调\code{GrpcMasterService}实例中相应的消息处理函数。其中，在消息处理函数中，其业务逻辑的处理完全依托于\code{Master}的领域对象。
+\code{grpc::Server}が外部に提供する\code{MasterService}サービスのエンティティが\code{GrpcMasterService}インスタンスであることは容易に分かります。メッセージが到着すると、自動的に\code{GrpcMasterService}インスタンスの対応するメッセージ処理関数がコールバックされます。そのうち、メッセージ処理関数では、その業務ロジックの処理は完全に\code{Master}のドメインオブジェクトに依存しています。
 
 \begin{leftbar}
 \begin{c++}
@@ -1197,7 +1197,7 @@ void GrpcServer::InitMasterService() {
 \end{c++}
 \end{leftbar}
 
-依次类推，\code{grpc::Server}对外提供\code{WorkerService}服务的实体是\code{GrpcWorkerService}实例。当消息到达时，将自动回调\code{GrpcWorkerService}实例中相应的消息处理函数。其中，在消息处理函数中，其业务逻辑的处理完全依托于\code{GrpcWorker}的领域对象。
+同様に、\code{grpc::Server}が外部に提供する\code{WorkerService}サービスのエンティティは\code{GrpcWorkerService}インスタンスです。メッセージが到着すると、自動的に\code{GrpcWorkerService}インスタンスの対応するメッセージ処理関数がコールバックされます。そのうち、メッセージ処理関数では、その業務ロジックの処理は完全に\code{GrpcWorker}のドメインオブジェクトに依存しています。
 
 \begin{leftbar}
 \begin{c++}
@@ -1218,9 +1218,9 @@ void GrpcServer::InitWorkerService(::grpc::ServerBuilder& builder) {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{启动服务}
+\subsubsection{サービスの開始}
 
-在\code{New}状态，\code{grpc::Server}已经启动，但暂时没有对外提供\code{MasterService}服务和\code{WorkerService}服务。通过调用\code{GrpcServer::Start}方法后，\code{GrpcServer}的状态从\code{New}迁移\code{Started}状态，并启动了两个独立的线程，分别启动\code{MasterService}和\code{WorkerService}的消息处理器。此时，\code{GrpcServer}正式对外提供\code{MasterService}和\code{WorkerService}。
+\code{New}状態では、\code{grpc::Server}はすでに起動していますが、まだ外部に\code{MasterService}サービスと\code{WorkerService}サービスを提供していません。\code{GrpcServer::Start}メソッドを呼び出した後、\code{GrpcServer}の状態が\code{New}から\code{Started}状態に移行し、2つの独立したスレッドを起動して、それぞれ\code{MasterService}と\code{WorkerService}のメッセージハンドラを開始します。この時点で、\code{GrpcServer}は正式に外部に\code{MasterService}と\code{WorkerService}を提供します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1248,11 +1248,11 @@ Status GrpcServer::Start() {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{等待终止服务}
+\subsubsection{サービスの終了待機}
 
-为了持久地对外提供\code{MasterService}服务和\code{WorkerService}服务，需要分别对线程\code{TF\_master\_service}和\code{TF\_worker\_service}实施\code{join}操作，使得主线程挂起，直至这两个线程终止。
+\code{MasterService}サービスと\code{WorkerService}サービスを持続的に外部に提供するために、\code{TF\_master\_service}スレッドと\code{TF\_worker\_service}スレッドにそれぞれ\code{join}操作を実行し、メインスレッドを中断させ、これら2つのスレッドが終了するまで待機する必要があります。
 
-通过调用\code{GrpcServer::Join}方法，当\code{GrpcServer}处于\code{Started}或\code{Stoped}状态时，它将自动调用\code{Thread}的析构函数。
+\code{GrpcServer::Join}メソッドを呼び出すことで、\code{GrpcServer}が\code{Started}または\code{Stoped}状態にある場合、自動的に\code{Thread}のデストラクタを呼び出します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1275,7 +1275,8 @@ Status GrpcServer::Join() {
 \end{c++}
 \end{leftbar}
 
-例如，基于\code{C++}标准库实现的\code{StdThread}中，其析构函数将调用\code{std::thread}的\code{join}方法。
+例えば、\code{C++}標準ライブラリに基づいて実装された\code{StdThread}では、そのデストラクタが\code{std::thread}の\code{join}メソッドを呼び出します。
+
 
 \begin{leftbar}
 \begin{c++}
@@ -1295,9 +1296,9 @@ struct StdThread : Thread {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{终止服务}
+\subsubsection{サービスの終了}
 
-遗憾的是，目前\code{GrpcServer}并不能优雅地退出。因此，在工程实践环境中，\tf{}的分布式运行时常常需要借助于\code{Kubernetes}，实现\code{GrpcServer}服务的自动管理。
+残念ながら、現在の\code{GrpcServer}は優雅に終了することができません。したがって、エンジニアリング実践環境では、\tf{}の分散ランタイムはしばしば\code{Kubernetes}に頼って、\code{GrpcServer}サービスの自動管理を実現しています。
 
 \begin{leftbar}
 \begin{c++}
@@ -1320,13 +1321,13 @@ Status GrpcServer::Stop() {
 \end{c++}
 \end{leftbar}
 
-\subsection{创建WorkerCacheInterface}
+\subsection{WorkerCacheInterfaceの作成}
 
-介绍完\code{GrpcServer}状态机模型之后，再回到之前遗留的一个问题。\code{MasterEnv}持有\code{WorkerCacheInterface}实例，它用于查询或延迟创建\code{WorkerInterface}；其中，\code{WorkerInterface}用于访问远端\code{WorkerService}的服务。
+\code{GrpcServer}の状態機械モデルを紹介した後、以前に残された問題に戻ります。\code{MasterEnv}は\code{WorkerCacheInterface}インスタンスを保持しており、これは\code{WorkerInterface}の照会または遅延作成に使用されます。そのうち、\code{WorkerInterface}はリモートの\code{WorkerSerivice}サービスにアクセスするために使用されます。
 
-\subsubsection{工厂方法：GrpcServer::WorkerCacheFactory}
+\subsubsection{ファクトリメソッド：GrpcServer::WorkerCacheFactory}
 
-在初始化\code{MasterEnv}时，通过调用工厂方法\code{GrpcServer::WorkerCacheFactory}创建\code{WorkerCacheInterface}实例。其中，\code{WorkerCacheFactoryOptions}等价于\code{ServerDef}，它包含\code{ClusterDef}，及其\code{job\_name:task\_index}信息。因此，经过\code{ParseChannelSpec}得到的\code{GrpcChannelSpec}实例，等价于\code{ClusterSpec}，它包含了集群的基本配置信息。
+\code{MasterEnv}の初期化時、\code{GrpcServer::WorkerCacheFactory}ファクトリメソッドを呼び出して\code{WorkerCacheInterface}インスタンスを作成します。そのうち、\code{WorkerCacheFactoryOptions}は\code{ServerDef}と同等で、\code{ClusterDef}および\code{job\_name:task\_index}情報を含んでいます。したがって、\code{ParseChannelSpec}を経て得られた\code{GrpcChannelSpec}インスタンスは\code{ClusterSpec}と同等で、クラスターの基本設定情報を含んでいます。
 
 \begin{leftbar}
 \begin{c++}
@@ -1351,9 +1352,9 @@ Status GrpcServer::WorkerCacheFactory(
 \end{c++}
 \end{leftbar}
 
-\subsubsection{工厂方法：NewGrpcChannelCache}
+\subsubsection{ファクトリメソッド：NewGrpcChannelCache}
 
-\code{NewGrpcChannelCache}用于创建\code{GrpcChannelCache}实例，\code{GrpcChannelCache}可以根据\code{Worker}的名称，获取或延迟创建相应的\code{grpc::Channel}实例。其中，一个\ascii{Job}创建一个\code{SparseGrpcChannelCache}实例，\code{MultiGrpcChannelCache}持有多个\code{SparseGrpcChannelCache}，这是一种典型的组合模式的应用，下文将详细讲解\code{GrpcChannelCache}的设计。
+\code{NewGrpcChannelCache}は\code{GrpcChannelCache}インスタンスを作成するために使用されます。\code{GrpcChannelCache}は\code{Worker}の名前に基づいて、対応する\code{grpc::Channel}インスタンスを取得または遅延作成できます。そのうち、1つの\ascii{Job}に対して1つの\code{SparseGrpcChannelCache}インスタンスが作成され、\code{MultiGrpcChannelCache}は複数の\code{SparseGrpcChannelCache}を保持します。これは典型的な複合パターンの適用で、後で\code{GrpcChannelCache}の設計について詳しく説明します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1371,9 +1372,10 @@ GrpcChannelCache* NewGrpcChannelCache(
 \end{c++}
 \end{leftbar}
 
-\subsubsection{工厂方法：NewGrpcWorkerCacheWithLocalWorker}
+\subsubsection{ファクトリメソッド：NewGrpcWorkerCacheWithLocalWorker}
 
-而工厂方法\code{NewGrpcWorkerCacheWithLocalWorker}，用于创建带有本地\code{Worker}的\code{GrpcWorkerCache}实例。
+一方、ファクトリメソッド\code{NewGrpcWorkerCacheWithLocalWorker}は、ローカルの\code{Worker}を持つ\code{GrpcWorkerCache}インスタンスを作成するために使用されます。
+
 
 \begin{leftbar}
 \begin{c++}
@@ -1385,9 +1387,9 @@ WorkerCacheInterface* NewGrpcWorkerCacheWithLocalWorker(
 \end{c++}
 \end{leftbar}
 
-\subsubsection{工厂方法：GrpcServer::GetChannelCreationFunction}
+\subsubsection{ファクトリメソッド：GrpcServer::GetChannelCreationFunction}
 
-\code{GetChannelCreationFunction}的设计使用了\ascii{C++}函数式编程的思想，它返回了一个用于创建\code{grpc::Channel}实例的函数对象。但不幸的是，已存在的\code{NewHostPortGrpcChannel}函数与\code{ChannelCreationFunction}接口不匹配。因此，此处使用了名为\code{ConvertToChannelCreationFunction}的适配器，将\code{NewHostPortGrpcChannel}变换为\code{ChannelCreationFunction}。
+\code{GetChannelCreationFunction}の設計は\ascii{C++}関数型プログラミングの考え方を使用しており、\code{grpc::Channel}インスタンスを作成するための関数オブジェクトを返します。しかし残念なことに、既存の\code{NewHostPortGrpcChannel}関数は\code{ChannelCreationFunction}インターフェースと一致しません。したがって、ここでは\code{ConvertToChannelCreationFunction}というアダプターを使用して、\code{NewHostPortGrpcChannel}を\code{ChannelCreationFunction}に変換しています。
 
 \begin{leftbar}
 \begin{c++}
@@ -1425,19 +1427,19 @@ ChannelCreationFunction GrpcServer::GetChannelCreationFunction() const {
 \end{c++}
 \end{leftbar}
 
-至此，我们理顺了\code{GrpcChannelCache}与\code{WorkerCacheInterface}的创建过程，但是它们是用来干什么呢？事实上，\code{WorkerCacheInterface}用于获取\code{WorkerInterface}实例，后者用于访问远端\code{WorkerSerivice}服务的，其工作原理非常简单。
+ここまでで、\code{GrpcChannelCache}と\code{WorkerCacheInterface}の作成プロセスを整理しましたが、これらは何のために使用されるのでしょうか？実際、\code{WorkerCacheInterface}は\code{WorkerInterface}インスタンスを取得するために使用され、後者はリモートの\code{WorkerSerivice}サービスにアクセスするために使用されます。その動作原理は非常にシンプルです。
 
 \begin{enum}
-  \eitem{获取集群中所有\code{Worker}的名字列表；}
-  \eitem{根据\code{Worker}的名字创建\ascii{RPC}通道；}  
-  \eitem{根据\code{Worker}的\ascii{RPC}通道，创建\code{GrpcRemoteWorker}实例。}
+  \eitem{クラスター内のすべての\code{Worker}の名前リストを取得します。}
+  \eitem{\code{Worker}の名前に基づいて\ascii{RPC}チャネルを作成します。}  
+  \eitem{\code{Worker}の\ascii{RPC}チャネルに基づいて、\code{GrpcRemoteWorker}インスタンスを作成します。}
 \end{enum}
 
-其中，\code{GrpcRemoteWorker}是\code{WorkerInterface}的具体实现；\code{GrpcChannelCache}负责获取\code{Worker}的名称，及其创建\code{Worker}相应的\code{grpc::Channel}。
+そのうち、\code{GrpcRemoteWorker}は\code{WorkerInterface}の具体的な実装です。\code{GrpcChannelCache}は\code{Worker}の名前の取得と、\code{Worker}に対応する\code{grpc::Channel}の作成を担当します。
 
-\subsection{创建Worker的RPC通道}
+\subsection{Workerの RPC チャネルの作成}
 
-\code{GrpcChannelCache}用于获取或创建集群中远端\code{Worker}的\ascii{RPC}通道。其中，\code{ListWorkers}用于返回集群中\code{Worker}的名称列表。\code{TranslateTask}用于将\code{Worker}的名称转换为\code{host:port}的地址信息。\code{FindWorkerChannel}从缓存中查找\code{grpc::Channel}实例；如果未找到，则根据地址信息动态创建一个\code{grpc::Channel}实例，并添加至缓存中。
+\code{GrpcChannelCache}はクラスター内のリモート\code{Worker}の\ascii{RPC}チャネルの取得または作成に使用されます。そのうち、\code{ListWorkers}はクラスター内の\code{Worker}の名前リストを返すために使用されます。\code{TranslateTask}は\code{Worker}の名前を\code{host:port}のアドレス情報に変換するために使用されます。\code{FindWorkerChannel}はキャッシュから\code{grpc::Channel}インスタンスを検索します。見つからない場合は、アドレス情報に基づいて動的に\code{grpc::Channel}インスタンスを作成し、キャッシュに追加します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1452,20 +1454,20 @@ struct GrpcChannelCache {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{隐式树}
+\subsubsection{暗黙的ツリー}
 
-如\refig{dist-grpc-channel-cache}所示，\code{GrpcChannelCache}类层次结构遵循隐式的“树型”结构，\code{SparseGrpcChannelCache}是树节点，其每个实例对应一个\ascii{Job}实例。而\code{MultiGrpcChannelCache}则持有多个\code{SparseGrpcChannelCache}实例，其每个实例对应多个\code{Job}实例。
+図\refig{dist-grpc-channel-cache}に示すように、\code{GrpcChannelCache}クラス階層は暗黙的な「ツリー」構造に従っています。\code{SparseGrpcChannelCache}はツリーノードであり、各インスタンスは1つの\ascii{Job}インスタンスに対応します。一方、\code{MultiGrpcChannelCache}は複数の\code{SparseGrpcChannelCache}インスタンスを保持し、各インスタンスは複数の\ascii{Job}インスタンスに対応します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/dist-grpc-channel-cache.png}
-\caption{组合创建GRPC通道}
+\caption{GRPCチャネルの組み合わせ作成}
  \label{fig:dist-grpc-channel-cache}
 \end{figure}
 
-\subsubsection{缓存机制}
+\subsubsection{キャッシュメカニズム}
 
-为了避免每次实时创建\code{grpc::Channel}实例的开销，引入了\code{CachingGrpcChannelCache}，它在查找\code{grpc::Channel}的过程使用了缓存技术。当缓存中查找失败时，通过调用\code{FindChannelOnce}延迟地动态创建\code{grpc::Channel}实例，并添加至缓存中。
+\code{grpc::Channel}インスタンスをリアルタイムで作成するたびのオーバーヘッドを避けるために、\code{CachingGrpcChannelCache}が導入されました。これは\code{grpc::Channel}の検索プロセスでキャッシュ技術を使用しています。キャッシュで検索に失敗した場合、\code{FindChannelOnce}を呼び出して動的に\code{grpc::Channel}インスタンスを遅延作成し、キャッシュに追加します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1497,17 +1499,18 @@ struct CachingGrpcChannelCache : GrpcChannelCache {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{叶子节点}
+\subsubsection{リーフノード}
 
-\code{SparseGrpcChannelCache}的每个实例对应一个\ascii{Job}实例，它为某个\ascii{Job}创建相应的\code{grpc::Channel}实例集，每个\ascii{Task}对应一个\code{grpc::Channel}。
+\code{SparseGrpcChannelCache}の各インスタンスは1つの\ascii{Job}インスタンスに対応し、特定の\ascii{Job}用の対応する\code{grpc::Channel}インスタンスセットを作成します。各\ascii{Task}は1つの\code{grpc::Channel}に対応します。
 
-其中，\code{FindChannelOnce}通过调用\code{TranslateTask}，从\code{Worker}名称中提取对应的\code{task\_id}，然后再从\code{host\_ports\_}中索引出\code{host:port}的地址信息，以此地址调用工厂方法\code{channel\_func\_}创建相应的\code{grpc::Channel}实例。因此，它主要负责如下三个职责：
+そのうち、\code{FindChannelOnce}は\code{TranslateTask}を呼び出して\code{Worker}名から対応する\code{task\_id}を抽出し、次に\code{host\_ports\_}から\code{host:port}のアドレス情報をインデックスし、このアドレスを使用してファクトリメソッド\code{channel\_func\_}を呼び出して対応する\code{grpc::Channel}インスタンスを作成します。したがって、主に以下の3つの責任があります：
 
 \begin{enum}
-  \eitem{通过\code{ListWorkers}返回该\ascii{Job}对应的\ascii{Task}名称列表；例如，\code{/job:ps}返回\code{[/job:ps/replica:0/task:0, /job:ps/replica:0/task:1]}；}
-  \eitem{通过\code{TranslateTask}，并根据特定\ascii{Task}名称，索引\code{host:port}的地址信息；例如，\code{/job:ps/replica:0/task:0}索引的地址为\code{ps0:2222}；}
-  \eitem{通过\code{FindChannelOnce}，并根据特定\ascii{Task}名称，创建对应的\code{grpc::Channel}实例。例如，\code{/job:ps/replica:0/task:0}，创建以\code{ps0:2222}为地址的\code{grpc::Channel}实例。}
+  \eitem{\code{ListWorkers}を通じて、その\ascii{Job}に対応する\ascii{Task}名リストを返します。例えば、\code{/job:ps}は\code{[/job:ps/replica:0/task:0, /job:ps/replica:0/task:1]}を返します。}
+  \eitem{\code{TranslateTask}を通じて、特定の\ascii{Task}名に基づいて\code{host:port}のアドレス情報をインデックスします。例えば、\code{/job:ps/replica:0/task:0}のインデックスされたアドレスは\code{ps0:2222}です。}
+  \eitem{\code{FindChannelOnce}を通じて、特定の\ascii{Task}名に基づいて対応する\code{grpc::Channel}インスタンスを作成します。例えば、\code{/job:ps/replica:0/task:0}に対して、\code{ps0:2222}をアドレスとする\code{grpc::Channel}インスタンスを作成します。}
 \end{enum}
+
 
 \begin{leftbar}
 \begin{c++}
@@ -1557,9 +1560,10 @@ struct SparseGrpcChannelCache : CachingGrpcChannelCache {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{非叶子节点}
+\subsubsection{非リーフノード}
 
-\code{MultiGrpcChannelCache}通过\code{caches\_}持有多个\code{SparseGrpcChannelCache}实例，实现整个集群所有\ascii{Worker}节点的\code{grpc::Channel}的组合创建。为了进一步提高\code{SparseGrpcChannelCache}实例的查找过程，\code{MultiGrpcChannelCache}缓存了已访问过的\code{SparseGrpcChannelCache}实例；只有当缓存中查找\code{SparseGrpcChannelCache}实例失败后，才尝试从\code{caches\_}列表中索引相应的\code{SparseGrpcChannelCache}实例，并自动添加至缓存中。
+\code{MultiGrpcChannelCache}は\code{caches\_}を通じて複数の\code{SparseGrpcChannelCache}インスタンスを保持し、クラスター内のすべての\ascii{Worker}ノードの\code{grpc::Channel}の組み合わせ作成を実現します。\code{SparseGrpcChannelCache}インスタンスの検索プロセスをさらに高速化するために、\code{MultiGrpcChannelCache}はアクセスされたことのある\code{SparseGrpcChannelCache}インスタンスをキャッシュしています。\code{SparseGrpcChannelCache}インスタンスのキャッシュ検索に失敗した場合にのみ、\code{caches\_}リストから対応する\code{SparseGrpcChannelCache}インスタンスをインデックスし、自動的にキャッシュに追加します。
+
 
 \begin{leftbar}
 \begin{c++}
@@ -1621,14 +1625,14 @@ class MultiGrpcChannelCache : public CachingGrpcChannelCache {
 \end{c++}
 \end{leftbar}
 
-\subsection{创建WorkerInterface}
+\subsection{WorkerInterfaceの作成}
 
-如\refig{dist-worker-cache-interface}所示，\code{GrpcWorkerCache}持有\code{GrpcChannelCache}对象，并通过它创建\code{grpc::Channel}实例，从而实现了\code{GrpcRemoteWorker}实例的动态创建。
+図\refig{dist-worker-cache-interface}に示すように、\code{GrpcWorkerCache}は\code{GrpcChannelCache}オブジェクトを保持し、それを通じて\code{grpc::Channel}インスタンスを作成し、\code{GrpcRemoteWorker}インスタンスの動的作成を実現しています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/dist-worker-cache-interface.png}
-\caption{多态创建\code{WorkerInterface}实例}
+\caption{\code{WorkerInterface}インスタンスの多態的作成}
  \label{fig:dist-worker-cache-interface}
 \end{figure}
 
@@ -1683,118 +1687,118 @@ struct GrpcWorkerCache : WorkerCachePartial {
 
 \end{content}
 
-\section{会话控制}
+\section{セッション制御}
 
 \begin{content}
 
-\emph{会话控制}是\tf{}分布式运行时的核心，也是整个\tf{}执行引擎的的关键路径。为了理顺会话控制的脉络，接下来的文章将重点讲述整个会话控制的详细过程。
+\emph{セッション制御}は\tf{}分散ランタイムの核心であり、\tf{}実行エンジン全体の重要なパスでもあります。セッション制御の流れを整理するために、以下の記事ではセッション制御の詳細なプロセス全体について重点的に説明します。
 
+\subsection{セッションの協調}
 
-\subsection{会话协同}
+図\refig{dist-session-overview}に示すように、分散モードでは、セッション制御は\code{GrpcSession, MasterSession, WorkerSession}間の協調によって実現されます。これらはそれぞれ\code{Client, Master, Worker}に配置され、同じ\code{session\_handle}を使用して協調作業を実現します。
 
-如\refig{dist-session-overview}所示，在分布式模式中，会话控制通过\code{GrpcSession, MasterSession, WorkerSession}之间的协同实现的，它们分别驻留在\code{Client, Master, Worker}上，使用同一个\code{session\_handle}实现协同工作的。
-
-其中，\code{tf.Session}使用\ascii{Python}实现，是\tf{}对外提供的\ascii{API}。它与\code{GrpcSession}在同一个进程内，并且直接持有\code{GrpcSession}的句柄(或指针)实现的。
+そのうち、\code{tf.Session}は\ascii{Python}で実装され、\tf{}が外部に提供する\ascii{API}です。これは\code{GrpcSession}と同じプロセス内にあり、\code{GrpcSession}のハンドル（またはポインタ）を直接保持して実現されています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/dist-session-overview-1.png}
-\caption{会话协同}
+\caption{セッションの協調}
  \label{fig:dist-session-overview}
 \end{figure}
 
-如\refig{dist-multi-client-conn}所示，在分布式模式中，可能存在多个\ascii{Client}同时接入一个\ascii{Master}，\ascii{Master}为其每个接入的\ascii{Client}创建一个\code{MasterSession}实例。\ascii{Worker}也可能同时为多个\ascii{Master}提供计算服务，\ascii{Worker}为其每个请求计算的\ascii{Master}创建一个\code{WorkerSession}实例。为了区分不同的\ascii{Client}的计算服务，使用不同的\code{session\_handle}区分。
+図\refig{dist-multi-client-conn}に示すように、分散モードでは、複数の\ascii{Client}が同時に1つの\ascii{Master}にアクセスする可能性があり、\ascii{Master}はアクセスする各\ascii{Client}に対して\code{MasterSession}インスタンスを作成します。\ascii{Worker}も同時に複数の\ascii{Master}に計算サービスを提供する可能性があり、\ascii{Worker}は計算をリクエストする各\ascii{Master}に対して\code{WorkerSession}インスタンスを作成します。異なる\ascii{Client}の計算サービスを区別するために、異なる\code{session\_handle}を使用して区別します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/dist-multi-client-conn.png}
-\caption{会话控制：领域模型}
+\caption{セッション制御：ドメインモデル}
  \label{fig:dist-multi-client-conn}
 \end{figure}
 
-\subsection{生命周期}
+\subsection{ライフサイクル}
 
-\code{GrpcSession}控制\ascii{Client}的会话生命周期，\code{MasterSession}控制\ascii{Master}的会话生命周期，\code{WorkerSession}控制\ascii{Worker}的会话生命周期，它们之间通过\code{session\_handle}实现协同。
+\code{GrpcSession}は\ascii{Client}のセッションライフサイクルを制御し、\code{MasterSession}は\ascii{Master}のセッションライフサイクルを制御し、\code{WorkerSession}は\ascii{Worker}のセッションライフサイクルを制御します。これらは\code{session\_handle}を通じて協調を実現します。
 
-\subsubsection{GrpcSession生命周期}
+\subsubsection{GrpcSessionライフサイクル}
 
-在分布式模式下，\code{Client}的运行时由\code{GrpcSession}控制，\code{GrpcSession}的生命周期过程如\refig{dist-grpc-session-life-cycle}所示。
+分散モードでは、\code{Client}のランタイムは\code{GrpcSession}によって制御されます。\code{GrpcSession}のライフサイクルプロセスは図\refig{dist-grpc-session-life-cycle}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/dist-grpc-session-life-cycle.png}
-\caption{\code{GrpcSession}生命周期}
+\caption{\code{GrpcSession}ライフサイクル}
  \label{fig:dist-grpc-session-life-cycle}
 \end{figure}
 
-\subsubsection{MasterSession生命周期}
+\subsubsection{MasterSessionライフサイクル}
 
-在分布式模式下，\code{Master}的运行时由\code{MasterSession}控制，\code{MasterSession}生命周期过程如\refig{dist-master-session-life-cycle}所示。
+分散モードでは、\code{Master}のランタイムは\code{MasterSession}によって制御されます。\code{MasterSession}のライフサイクルプロセスは図\refig{dist-master-session-life-cycle}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/dist-master-session-life-cycle.png}
-\caption{\code{MasterSession}生命周期}
+\caption{\code{MasterSession}ライフサイクル}
  \label{fig:dist-master-session-life-cycle}
 \end{figure}
 
-\subsubsection{WorkerSession生命周期}
+\subsubsection{WorkerSessionライフサイクル}
 
-在分布式模式下，\code{Worker}的运行时由\code{WorkerSession}控制，\code{WorkerSession}生命周期过程如\refig{dist-worker-session-life-cycle}所示。
+分散モードでは、\code{Worker}のランタイムは\code{WorkerSession}によって制御されます。\code{WorkerSession}のライフサイクルプロセスは図\refig{dist-worker-session-life-cycle}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/dist-worker-session-life-cycle.png}
-\caption{\code{WorkerSession}生命周期}
+\caption{\code{WorkerSession}ライフサイクル}
  \label{fig:dist-worker-session-life-cycle}
 \end{figure}
 
-\subsection{会话过程}
+\subsection{セッションプロセス}
 
-在用户编程环境中，\ascii{Client}从\code{tf.Session(target)}为起点，通过\code{Session.run}启动迭代执行，最终计算完成后调用\code{Session.close}关闭会话。但是，在分布式执行引擎的实现中，其过程要复杂得多。
+ユーザープログラミング環境では、\ascii{Client}は\code{tf.Session(target)}を起点とし、\code{Session.run}を通じて反復実行を開始し、最終的に計算が完了した後に\code{Session.close}を呼び出してセッションを閉じます。しかし、分散実行エンジンの実装では、そのプロセスはより複雑です。
 
 \begin{nitemize}
-  \eitem{创建会话}    
+  \eitem{セッションの作成}    
     \begin{enum}
-      \eitem{创建\code{GrpcSession}；}  
-      \eitem{获取远端设备集；} 
-      \eitem{创建\code{MasterSession}；}
-      \eitem{创建\code{WorkerSession}；}      
+      \eitem{\code{GrpcSession}の作成;}  
+      \eitem{リモートデバイスセットの取得;} 
+      \eitem{\code{MasterSession}の作成;}
+      \eitem{\code{WorkerSession}の作成;}      
     \end{enum}
-  \eitem{迭代执行}          
+  \eitem{反復実行}          
     \begin{enum}
-      \eitem{启动执行；}  
-      \eitem{图剪枝；}  
-      \eitem{图分裂；}        
-      \eitem{注册子图；}              
-      \eitem{运行子图；}                         
+      \eitem{実行の開始;}  
+      \eitem{グラフの剪定;}  
+      \eitem{グラフの分割;}        
+      \eitem{サブグラフの登録;}              
+      \eitem{サブグラフの実行;}                         
     \end{enum}      
-  \eitem{关闭会话}          
+  \eitem{セッションの終了}          
     \begin{enum}          
-      \eitem{关闭\code{GrpcSession}；}  
-      \eitem{关闭\code{MasterSession}；}
-      \eitem{关闭\code{WorkerSession}；}      
+      \eitem{\code{GrpcSession}の終了;}  
+      \eitem{\code{MasterSession}の終了;}
+      \eitem{\code{WorkerSession}の終了;}      
     \end{enum}  
 \end{nitemize}
 
 \end{content}
 
-\section{创建会话}
+\section{セッションの作成}
 
 \begin{content}
 
-在启动计算之前，需要在\ascii{Client}端创建\code{GrpcSession}实例，在\ascii{Master}端创建\code{MasterSession}实例；在各个\ascii{Worker}上创建\code{WorkerSession}实例，三者通过\code{MasterSession}的\code{session\_handle}实现协同，用于服务该接入的\ascii{Client}实例。
+計算を開始する前に、\ascii{Client}側で\code{GrpcSession}インスタンスを作成し、\ascii{Master}側で\code{MasterSession}インスタンスを作成する必要があります。各\ascii{Worker}上で\code{WorkerSession}インスタンスを作成し、これら3つは\code{MasterSession}の\code{session\_handle}を通じて協調を実現し、そのアクセスした\ascii{Client}インスタンスにサービスを提供します。
 
-\subsection{创建GrpcSession}
+\subsection{GrpcSessionの作成}
 
-当\ascii{Client}调用\code{tf.Session(target)}时，通过调用\code{TF\_NewDeprecatedSession}的\ascii{C API}接口，触发创建\code{GrpcSession}实例。其中，\ascii{C API}是\tf{}后端系统对外提供多语言编程的标准接口。最终，\code{tf.Session}将直接持有\code{GrpcSession}的句柄，如\refig{dist-create-grpc-session-1}所示。
+\ascii{Client}が\code{tf.Session(target)}を呼び出すと、\code{TF\_NewDeprecatedSession}の\ascii{C API}インターフェースを呼び出すことで、\code{GrpcSession}インスタンスの作成がトリガーされます。そのうち、\ascii{C API}は\tf{}バックエンドシステムが外部に提供する多言語プログラミングの標準インターフェースです。最終的に、\code{tf.Session}は直接\code{GrpcSession}のハンドルを保持します。図\refig{dist-create-grpc-session-1}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/dist-create-grpc-session-1.png}
-\caption{创建\code{GrpcSession}: \code{tf.Session}持有\code{GrpcSession}句柄}
+\caption{\code{GrpcSession}の作成: \code{tf.Session}が\code{GrpcSession}ハンドルを保持}
  \label{fig:dist-create-grpc-session-1}
 \end{figure}
+
 
 \begin{leftbar}
 \begin{c++}
@@ -1825,12 +1829,12 @@ TF_DeprecatedSession* TF_NewDeprecatedSession(
 \end{c++}
 \end{leftbar}
 
-如\refig{dist-grpc-session-factory}所示，\code{GrpcSession}由\code{GrpcSessionFactory}多态创建。当\code{target}以\code{grpc://}开头，则\code{SessionFactory::GetFactory}返回\code{GrpcSessionFactory}实例，而\code{GrpcSessionFactory::NewSession}的工厂方法委托\code{GrpcSession::Create}的静态工厂方法创建\code{GrpcSession}实例。
+図\refig{dist-grpc-session-factory}に示すように、\code{GrpcSession}は\code{GrpcSessionFactory}によって多態的に作成されます。\code{target}が\code{grpc://}で始まる場合、\code{SessionFactory::GetFactory}は\code{GrpcSessionFactory}インスタンスを返し、\code{GrpcSessionFactory::NewSession}のファクトリメソッドは\code{GrpcSession::Create}の静的ファクトリメソッドに\code{GrpcSession}インスタンスの作成を委託します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/dist-grpc-session-factory.png}
-\caption{多态创建GrpcSession}
+\caption{GrpcSessionの多態的作成}
  \label{fig:dist-grpc-session-factory}
 \end{figure}
 
@@ -1856,14 +1860,14 @@ struct GrpcSessionFactory : SessionFactory {
 \end{c++}
 \end{leftbar}
 
-\code{GrpcSession::Create}静态工厂方法主要负责创建\code{GrpcSession}实例，并完成相应的初始化工作。在初始化过程中，最重要的就是构建\code{MasterInterface}实例；其中，\code{MasterInterface}用于\ascii{Client}访问\ascii{Master}上的\code{MasterService}远端服务，它存在两种子类实现，分别对应两种不同应用场景：
+\code{GrpcSession::Create}静的ファクトリメソッドは主に\code{GrpcSession}インスタンスの作成と、対応する初期化作業の完了を担当します。初期化プロセスで最も重要なのは\code{MasterInterface}インスタンスの構築です。そのうち、\code{MasterInterface}は\ascii{Client}が\ascii{Master}上の\code{MasterService}リモートサービスにアクセスするために使用され、2つのサブクラス実装が存在し、それぞれ2つの異なる応用シナリオに対応しています：
 
 \begin{enum}
-  \eitem{\code{LocalMaster}：\ascii{Client}与\ascii{Master}在同一进程内，调用\code{LocalMaster::Lookup}直接获取\code{LocalMaster}实例；}
-  \eitem{\code{GrpcRemoteMaster}：\ascii{Client}与\ascii{Master}不在同一进程内，调用工厂方法\code{NewGrpcMaster}生成\code{GrpcRemoteMaster}实例。}
+  \eitem{\code{LocalMaster}：\ascii{Client}と\ascii{Master}が同じプロセス内にある場合、\code{LocalMaster::Lookup}を呼び出して直接\code{LocalMaster}インスタンスを取得します。}
+  \eitem{\code{GrpcRemoteMaster}：\ascii{Client}と\ascii{Master}が同じプロセス内にない場合、ファクトリメソッド\code{NewGrpcMaster}を呼び出して\code{GrpcRemoteMaster}インスタンスを生成します。}
 \end{enum}
 
-\code{GrpcRemoteMaster}实例是一个\ascii{RPC}的客户端实现，创建\code{GrpcRemoteMaster}实例时，需要先根据\code{target}指定的\ascii{Master}地址和服务端口，创建与之相连的\ascii{RPC}通道。
+\code{GrpcRemoteMaster}インスタンスは\ascii{RPC}のクライアント実装であり、\code{GrpcRemoteMaster}インスタンスを作成する際には、まず\code{target}で指定された\ascii{Master}のアドレスとサービスポートに基づいて、それに接続する\ascii{RPC}チャネルを作成する必要があります。
 
 \begin{leftbar}
 \begin{c++}
@@ -1890,14 +1894,14 @@ Status GrpcSession::Create(
 \end{c++}
 \end{leftbar}
 
-\subsection{创建MasterSession}
+\subsection{MasterSessionの作成}
 
-如\refig{dist-create-master-session-1}所示，当\code{GrpcSession}实例创建成功后，随后将触发\code{GprcSession::Create}的调用，将初始的计算图通过\code{CreateSessionRequst}消息发送给\ascii{Master}；当\ascii{Master}收到\code{CreateSessionRequst}消息后，生成相对应的\code{MasterSession}实例，并使用全局唯一的\code{session\_handle}标识该实例，最终通过\code{CreateSessionResponse}消息带回给\code{GrpcSession}。
+図\refig{dist-create-master-session-1}に示すように、\code{GrpcSession}インスタンスが作成された後、続いて\code{GprcSession::Create}の呼び出しがトリガーされ、初期の計算グラフを\code{CreateSessionRequst}メッセージを通じて\ascii{Master}に送信します。\ascii{Master}が\code{CreateSessionRequst}メッセージを受信すると、対応する\code{MasterSession}インスタンスを生成し、グローバルに一意の\code{session\_handle}を使用してそのインスタンスを識別し、最終的に\code{CreateSessionResponse}メッセージを通じて\code{GrpcSession}に返します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/dist-create-master-session-1.png}
-\caption{创建\code{MasterSession}}
+\caption{\code{MasterSession}の作成}
  \label{fig:dist-create-master-session-1}
 \end{figure}
 
@@ -1910,9 +1914,9 @@ Status GrpcSession::Create(
 
 \subsubsection{GrpcSesion::Create(graph\_def)}
 
-\code{GrpcSession::Create(graph\_def)}方法主要用于\code{Client}请求\code{Master}创建\code{MasterSession}实例。首先，\code{GrpcSession::Create}方法完成构造\code{CreateSessionRequst}消息，然后通过\code{GrpcRemoteMaster}将其发送给\ascii{Master}。
+\code{GrpcSession::Create(graph\_def)}メソッドは主に\code{Client}が\code{Master}に\code{MasterSession}インスタンスの作成をリクエストするために使用されます。まず、\code{GrpcSession::Create}メソッドは\code{CreateSessionRequst}メッセージの構築を完了し、次に\code{GrpcRemoteMaster}を通じてそれを\ascii{Master}に送信します。
 
-当\code{GrpcSession}收到\code{CreateSessionResponse}消息后，保存\code{MasterSession}的\code{handle}，及其初始计算图的版本号\code{graph\_version}。其中，\code{handle}用于标识\ascii{Master}侧的\code{MasterSession}实例，\code{graph\_version}用于后续扩展计算图使用。
+\code{GrpcSession}が\code{CreateSessionResponse}メッセージを受信すると、\code{MasterSession}の\code{handle}と初期計算グラフのバージョン番号\code{graph\_version}を保存します。そのうち、\code{handle}は\ascii{Master}側の\code{MasterSession}インスタンスを識別するために使用され、\code{graph\_version}は後続の計算グラフの拡張に使用されます。
 
 \begin{leftbar}
 \begin{c++}
@@ -1961,7 +1965,7 @@ Status GrpcSession::Create(const GraphDef& graph) {
 
 \subsubsection{GrpcRemoteMaster::CreateSession}
 
-\code{GrpcRemoteMaster}是一个\ascii{gRPC}的客户端实现。它的实现非常简单，通过\ascii{gRPC}的一个\code{stub}调用远端\ascii{Master}相应的服务接口。
+\code{GrpcRemoteMaster}は\ascii{gRPC}のクライアント実装です。その実装は非常にシンプルで、\ascii{gRPC}の\code{stub}を通じてリモートの\ascii{Master}の対応するサービスインターフェースを呼び出します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1978,9 +1982,9 @@ Status GrpcRemoteMaster::CreateSession(
 
 \subsubsection{GrpcMasterService::CreateSessionHandler}
 
-\code{GrpcMasterService}是一个\ascii{gRPC}服务，它实现了\code{MasterService}的\ascii{RPC}服务接口。当收到\code{CreateSession}消息后，将由\code{GrpcMasterService::CreateSessionHandler}回调处理该消息，它将委托\code{Master}处理该消息。
+\code{GrpcMasterService}は\ascii{gRPC}サービスで、\code{MasterService}の\ascii{RPC}サービスインターフェースを実装しています。\code{CreateSession}メッセージを受信すると、\code{GrpcMasterService::CreateSessionHandler}がコールバックされてそのメッセージを処理し、\code{Master}にそのメッセージの処理を委託します。
 
-当\code{Master}处理完成后，将回调完成时的\ascii{lambda}表达式，向\ascii{Client}返回\code{CreateSessionResponse}的响应消息。
+\code{Master}が処理を完了すると、完了時の\ascii{lambda}式をコールバックし、\ascii{Client}に\code{CreateSessionResponse}の応答メッセージを返します。
 
 \begin{leftbar}
 \begin{c++}
@@ -1998,13 +2002,13 @@ void GrpcMasterService::CreateSessionHandler(
 
 \subsubsection{Master::CreateSession}
 
-\code{Master::CreateSession}将会在线程池里启动一个线程，并在线程内按照\code{cluster\_spec}信息，寻找所有的\ascii{Worker}，收集远端设备集的信息。最后，创建了一个\code{MasterSession}。
+\code{Master::CreateSession}はスレッドプール内で1つのスレッドを起動し、スレッド内で\code{cluster\_spec}情報に従ってすべての\ascii{Worker}を探し、リモートデバイスセットの情報を収集します。最後に、\code{MasterSession}を作成します。
 
 \begin{remark}
-查找远端设备集的过程，待下一节详细说明，本节示例代码中略去此部分代码的实现。
+リモートデバイスセットの検索プロセスについては、次のセクションで詳しく説明します。本セクションのサンプルコードではこの部分の実装を省略しています。
 \end{remark}
 
-当\code{MasterSession}创建成功后，\ascii{Master}会保存\code{(handle, master\_session)}的二元组信息，以便后续\ascii{Master}能够通过\code{handle}索引相应的\code{MasterSession}实例。
+\code{MasterSession}の作成が成功すると、\ascii{Master}は\code{(handle, master\_session)}の2つ組情報を保存し、後続の\ascii{Master}が\code{handle}を通じて対応する\code{MasterSession}インスタンスをインデックスできるようにします。
 
 \begin{leftbar}
 \begin{c++}
@@ -2067,15 +2071,14 @@ void Master::CreateSession(const CreateSessionRequest* req,
 
 \subsubsection{MasterSession::Create(graph\_def)}
 
-\code{MasterSession::Create(graph\_def)}主要完成两件事情。
+\code{MasterSession::Create(graph\_def)}は主に2つのことを行います。
 
 \begin{enum}
-  \eitem{初始化计算图，并生成\code{SimpleGraphExecutionState}实例；}
-  \eitem{如果动态配置集群，则广播所有\ascii{Worker}创建相应的\code{WorkerSession}实例。}
+  \eitem{計算グラフを初期化し、\code{SimpleGraphExecutionState}インスタンスを生成します。}
+  \eitem{クラスターが動的に設定されている場合、すべての\ascii{Worker}に対応する\code{WorkerSession}インスタンスを作成するようブロードキャストします。}
 \end{enum}
 
-其中，\code{SimpleGraphExecutionState::MakeForBaseGraph}实现与本地模式相同，在此不再重述。
-
+そのうち、\code{SimpleGraphExecutionState::MakeForBaseGraph}の実装はローカルモードと同じであり、ここでは再度説明しません。
 \begin{leftbar}
 \begin{c++}
 Status MasterSession::Create(
@@ -2100,27 +2103,27 @@ Status MasterSession::Create(
 \end{c++}
 \end{leftbar}
 
-\subsection{获取远端设备集}
+\subsection{リモートデバイスセットの取得}
 
-如\refig{dist-worker-get-status}所示，在创建\code{MasterSession}之前，\code{MasterSession}会轮询所有的\code{Worker}实例，获取远端所有\code{Worker}的设备信息。借助于\code{DeviceFinder}的设备查找器，调用\code{DeviceFinder::GetRemoteDevices}获取远端设备集。
+図\refig{dist-worker-get-status}に示すように、\code{MasterSession}の作成前に、\code{MasterSession}はすべての\code{Worker}インスタンスをポーリングし、リモートのすべての\code{Worker}のデバイス情報を取得します。\code{DeviceFinder}のデバイスファインダーを利用して、\code{DeviceFinder::GetRemoteDevices}を呼び出してリモートデバイスセットを取得します。
 
-它的工作原理非常简单，它根据\code{GrpcWorkerCache::ListWorkers}获取集群中所有的\ascii{Worker}的名字列表；然后，根据\code{worker\_name}的名称，调用\code{GrpcWorkerCache::CreateWorker}工厂方法创建\code{WorkerInterface}实例，后者用于访问远端\code{WorkerService}服务。最后，通过\code{WorkerInterface}向远端\ascii{Worker}列表广播发送\code{GetStatusRequest}请求消息，从而实现远端设备集的获取。
+その動作原理は非常にシンプルです。\code{GrpcWorkerCache::ListWorkers}を使用してクラスター内のすべての\ascii{Worker}の名前リストを取得し、次に\code{worker\_name}の名前に基づいて\code{GrpcWorkerCache::CreateWorker}ファクトリメソッドを呼び出して\code{WorkerInterface}インスタンスを作成します。後者はリモートの\code{WorkerService}サービスにアクセスするために使用されます。最後に、\code{WorkerInterface}を通じてリモートの\ascii{Worker}リストに\code{GetStatusRequest}リクエストメッセージをブロードキャスト送信し、リモートデバイスセットの取得を実現します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/dist-worker-get-status.png}
-\caption{获取远端设备集}
+\caption{リモートデバイスセットの取得}
  \label{fig:dist-worker-get-status}
 \end{figure}
 
-\subsubsection{设备查找器}
+\subsubsection{デバイスファインダー}
 
-\code{DeviceFinder}实现了一个函数对象，其实现了远端设备查找的算法，其过程分为三个步骤：
+\code{DeviceFinder}は関数オブジェクトを実装し、リモートデバイス検索のアルゴリズムを実装しています。そのプロセスは3つのステップに分かれています：
 
 \begin{enum}
-  \eitem{\code{Start}: 并发地广播\code{GetStatusRequest}给集群中所有\code{Worker}实例；}
-  \eitem{\code{Wait}: 收齐所有\code{Worker}返回的\code{GetStatusResponse}消息；}
-  \eitem{\code{GetRemoteDevices}: 获取查询结果，并将其返回给客户；}
+  \eitem{\code{Start}: 並行してクラスター内のすべての\code{Worker}インスタンスに\code{GetStatusRequest}をブロードキャストします。}
+  \eitem{\code{Wait}: すべての\code{Worker}から返された\code{GetStatusResponse}メッセージを収集します。}
+  \eitem{\code{GetRemoteDevices}: クエリ結果を取得し、クライアントに返します。}
 \end{enum}
 
 \begin{leftbar}
@@ -2140,12 +2143,11 @@ struct DeviceFinder {
 \end{c++}
 \end{leftbar}
 
-为了控制收齐多个\code{Worker}的\code{GetStatusResponse}消息，此处使用了\code{num\_pending\_}的计数器，由\code{DeviceFinder::Start}设置初始值为\code{Worker}的数目。
+複数の\code{Worker}からの\code{GetStatusResponse}メッセージを収集制御するために、ここでは\code{num\_pending\_}カウンターを使用しています。\code{DeviceFinder::Start}で初期値を\code{Worker}の数に設定します。
 
-当收到来自某个\code{Worker}的\code{GetStatusResponse}消息，则回调\code{WhenDone}，将计数器减\ascii{1}。当计数器减至为\ascii{0}时，通过调用\code{pending\_zero\_.notify\_all}，呼醒\code{pending\_zero\_.wait\_for}语句，随后便可以通过\code{finder.GetRemoteDevices}获取查询结果了。
+ある\code{Worker}からの\code{GetStatusResponse}メッセージを受信すると、\code{WhenDone}がコールバックされ、カウンターを1減少させます。カウンターが0になると、\code{pending\_zero\_.notify\_all}を呼び出して\code{pending\_zero\_.wait\_for}文を起こし、その後\code{finder.GetRemoteDevices}を通じてクエリ結果を取得できます。
 
-其中，在\code{DeviceFinder::Start}中，通过\code{NewRemoteDevices}向所有\code{Worker}广播\code{GetStatusRequest}消息查询相应的设备信息，下一节将重点描述其实现过程。
-
+そのうち、\code{DeviceFinder::Start}では、\code{NewRemoteDevices}を通じてすべての\code{Worker}に\code{GetStatusRequest}メッセージをブロードキャストし、対応するデバイス情報をクエリします。次のセクションでその実装プロセスについて詳しく説明します。
 \begin{leftbar}
 \begin{c++}
 struct DeviceFinder {
@@ -2247,7 +2249,7 @@ struct DeviceFinder {
 \end{c++}
 \end{leftbar}
 
-温馨提示，当\code{num\_pending\_}计数器不为零时，则主线程周期性睡眠\code{10}秒钟，醒来时如果发现存在\ascii{Worker}还未返回响应消息，则打印那些\ascii{Worker}的名称。当看到循环地打印如下信息时，此时应该明白\code{/job:worker/task:2}对应的\code{Server}是否异常退出了，或\ascii{Master}与之相应的\ascii{Worker}之间网络是否发生了异常等，根据具体情况分析和处理。
+注意点として、\code{num\_pending\_}カウンターがゼロでない場合、メインスレッドは10秒ごとに周期的にスリープし、起動時に\ascii{Worker}がまだ応答メッセージを返していないことを発見した場合、それらの\ascii{Worker}の名前を出力します。以下のような情報が繰り返し出力されるのを見た場合、\code{/job:worker/task:2}に対応する\code{Server}が異常終了したか、\ascii{Master}とそれに対応する\ascii{Worker}間のネットワークに異常が発生したかなどを、具体的な状況に応じて分析し対処する必要があります。
 
 \begin{leftbar}
 \begin{python}
@@ -2257,7 +2259,7 @@ CreateSession still waiting for response from worker: /job:worker/task:2
 
 \subsubsection{NewRemoteDevices}
 
-\code{NewRemoteDevices}将根据\code{worker\_name}查找\code{WorkerInterface}实例，并发送\code{GetStatusRequest}消息到对应的\code{Worker}获取其设备信息。当消息返回后，将回调\code{cb}的函数对象。其中，从远端\code{Worker}获取的设备信息并非完整，其不包含\code{worker\_name}的信息，因此需要手动地追加上去。
+\code{NewRemoteDevices}は\code{worker\_name}に基づいて\code{WorkerInterface}インスタンスを検索し、\code{GetStatusRequest}メッセージを対応する\code{Worker}に送信してそのデバイス情報を取得します。メッセージが返されると、\code{cb}関数オブジェクトがコールバックされます。そのうち、リモートの\code{Worker}から取得したデバイス情報は完全ではなく、\code{worker\_name}の情報が含まれていないため、手動で追加する必要があります。
 
 \begin{leftbar}
 \begin{c++}
@@ -2308,7 +2310,7 @@ void NewRemoteDevices(
 
 \subsubsection{GrpcRemoteWorker::GetStatusAsync}
 
-\code{GrpcRemoteWorker}是\code{WorkerInterface}的具体实现，它是\ascii{gRPC}的客户端实现，它通过\code{stub}调用远端\code{WorkerService}相应的服务接口。
+\code{GrpcRemoteWorker}は\code{WorkerInterface}の具体的な実装で、\ascii{gRPC}のクライアント実装です。\code{stub}を通じてリモートの\code{WorkerService}の対応するサービスインターフェースを呼び出します。
 
 \begin{leftbar}
 \begin{c++}
@@ -2322,9 +2324,9 @@ struct GrpcRemoteWorker : WorkerInterface {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{GrpcRemoteWorker::GetStatusAsync}
+\subsubsection{GrpcWorkerService::GetStatusHandler}
 
-\code{GrpcWorkerService}是\code{WorkerService}的具体实现。当收到\code{GetStatusRequest}消息，将由\code{GetStatusHandler}回调处理。
+\code{GrpcWorkerService}は\code{WorkerService}の具体的な実装です。\code{GetStatusRequest}メッセージを受信すると、\code{GetStatusHandler}がコールバックされて処理します。
 
 \begin{leftbar}
 \begin{c++}
@@ -2342,7 +2344,7 @@ struct GrpcWorkerService : AsyncServiceInterface {
 
 \subsubsection{Worker::GetStatusAsync}
 
-\code{Worker::GetStatusAsync}将委托\code{DeviceMgr}实现本地设备信息的汇总，并最终通过\code{GetStatusResponse}消息返回给对端。
+\code{Worker::GetStatusAsync}は\code{DeviceMgr}にローカルデバイス情報の集約を委託し、最終的に\code{GetStatusResponse}メッセージを通じて対向側に返します。
 
 \begin{leftbar}
 \begin{c++}
@@ -2359,7 +2361,7 @@ void Worker::GetStatusAsync(const GetStatusRequest* request,
 \end{c++}
 \end{leftbar}
 
-\code{DeviceMgr}持有本地设备集，实现极为简单。
+\code{DeviceMgr}はローカルデバイスセットを保持しており、その実装は非常にシンプルです。
 
 \begin{leftbar}
 \begin{c++}
@@ -2373,9 +2375,9 @@ void DeviceMgr::ListDeviceAttributes(
 \end{c++}
 \end{leftbar}
 
-\subsection{创建WorkerSession}
+\subsection{WorkerSessionの作成}
 
-当\code{MasterSession}创建成功后，如果没有动态配置集群(默认的分布式配置环境)，则不会广播所有\ascii{Worker}动态地创建\code{WorkerSession}。事实上，每个\ascii{Worker}都存在一个\code{SessionMgr}实例，它持有一个名为\code{legacy\_session\_}的\code{WorkerSession}实例。因此，每个\ascii{Worker}存在一个全局唯一的\code{WorkerSession}实例。
+\code{MasterSession}の作成が成功した後、クラスターが動的に設定されていない場合（デフォルトの分散設定環境）、すべての\ascii{Worker}に\code{WorkerSession}を動的に作成するようブロードキャストしません。実際、各\ascii{Worker}には\code{SessionMgr}インスタンスが存在し、\code{legacy\_session\_}という名前の\code{WorkerSession}インスタンスを保持しています。したがって、各\ascii{Worker}にはグローバルに一意の\code{WorkerSession}インスタンスが存在します。
 
 \begin{leftbar}
 \begin{c++}
@@ -2396,11 +2398,18 @@ SessionMgr::SessionMgr(
 \end{c++}
 \end{leftbar}
 
-如\refig{dist-create-worker-session}所示，如果存在动态集群配置，则\ascii{Master}广播每个\ascii{Worker}各自创建一个\code{WorkerSession}实例，并且使用\code{sessin\_handle}标识该\code{WorkerSession}。这些\code{WorkerSession}隶属于此\code{MasterSession}实例，因为它们使用与\code{MasterSession}实例相同的\code{session\_handle}标识。
+図\refig{dist-create-worker-session}に示すように、動的クラスター設定が存在する場合、\ascii{Master}は各\ascii{Worker}にそれぞれ\code{WorkerSession}インスタンスを作成するようブロードキャストし、\code{sessin\_handle}を使用してその\code{WorkerSession}を識別します。これらの\code{WorkerSession}はこの\code{MasterSession}インスタンスに属しています。なぜなら、それらは\code{MasterSession}インスタンスと同じ\code{session\_handle}識別子を使用しているからです。
 
-其中，\code{MasterSession}为了收齐所有\ascii{Worker}返回的\code{CreateWorkerSessionResponse}消息，引入了\code{BlockingCounter}计数器。\code{BlockingCounter}计数器初始值为\ascii{Worker}的数目，当收到每个\ascii{Worker}的响应消息，则对计数器减\ascii{1}，直至计数器为\ascii{0}，\code{done.Wait()}被呼醒。
+そのうち、\code{MasterSession}はすべての\ascii{Worker}から返された\code{CreateWorkerSessionResponse}メッセージを収集するために、\code{BlockingCounter}カウンターを導入しています。\code{BlockingCounter}カウンターの初期値は\ascii{Worker}の数で、各\ascii{Worker}からの応答メッセージを受信するたびにカウンターを1減少させ、カウンターが0になるまで\code{done.Wait()}が起こされます。
 
-此外，\code{WorkerInterface}实例是通过\code{WorkerCacheInterface}查询或创建得到的，后文将详细讲解其工作原理。
+また、\code{WorkerInterface}インスタンスは\code{WorkerCacheInterface}を通じてクエリまたは作成されます。後でその動作原理について詳しく説明します。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{figures/dist-create-worker-session.png}
+\caption{\code{WorkerSession}の動的作成}
+ \label{fig:dist-create-worker-session}
+\end{figure}
 
 \begin{figure}[H]
 \centering
@@ -2547,7 +2556,7 @@ Status MasterSession::CreateWorkerSessions(
 
 \subsubsection{GrpcRemoteWorker}
 
-\code{GrpcRemoteWorker}是访问远端\ascii{Worker}的\ascii{gRPC}客户端。它调用相应的\code{stub}调用远端服务。
+\code{GrpcRemoteWorker}はリモートの\ascii{Worker}にアクセスする\ascii{gRPC}クライアントです。対応する\code{stub}を呼び出してリモートサービスを呼び出します。
 
 \begin{leftbar}
 \begin{c++}
@@ -2564,7 +2573,7 @@ struct GrpcRemoteWorker : WorkerInterface {
 
 \subsubsection{GrpcWorkerService::CreateWorkerSessionHandler}
 
-在\ascii{Worker}端，\code{CreateWorkerSession}消息由\code{CreateWorkerSessionHandler}回调处理。它在线程池中启动一个可运行的线程，触发\code{Worker}动态创建\code{WorkerSession}实例。
+\ascii{Worker}側では、\code{CreateWorkerSession}メッセージは\code{CreateWorkerSessionHandler}によってコールバック処理されます。これは実行可能なスレッドをスレッドプールで起動し、\code{Worker}が動的に\code{WorkerSession}インスタンスを作成するようトリガーします。
 
 \begin{leftbar}
 \begin{c++}
@@ -2582,14 +2591,14 @@ struct GrpcWorkerService : AsyncServiceInterface {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{创建WorkerSession实例}
+\subsubsection{WorkerSessionインスタンスの作成}
 
-\code{Worker}将创建\code{WorkerSession}实例的职责委托给了\code{SessionMgr}，由其统一管理和维护所有\code{WorkerSession}实例的生命周期。如\refig{dist-worker-session-manager}所示，\code{SessionMgr}可能持有多个\code{WorkerSession}实例，每个\code{WorkerSession}实例使用\code{session\_handle}标识。
+\code{Worker}は\code{WorkerSession}インスタンスの作成責任を\code{SessionMgr}に委託し、すべての\code{WorkerSession}インスタンスのライフサイクルを統一的に管理および維持します。図\refig{dist-worker-session-manager}に示すように、\code{SessionMgr}は複数の\code{WorkerSession}インスタンスを保持する可能性があり、各\code{WorkerSession}インスタンスは\code{session\_handle}で識別されます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/dist-worker-session-manager.png}
-\caption{\code{Session}管理器}
+\caption{\code{Session}マネージャ}
  \label{fig:dist-worker-session-manager}
 \end{figure}
 
@@ -2607,12 +2616,12 @@ void Worker::CreateWorkerSessionAsync(
 \end{c++}
 \end{leftbar}
 
-如\refig{dist-worker-session-model}所示，\code{WorkerSession}持有一个\code{GraphMgr}实例，用于注册和运行多个图实例。其中，每个图实例使用\code{graph\_handle}标识。同时，每个\code{WorkerSession}持有一个\code{DeviceMgr}实例，用于管理本地计算设备的集合。
+図\refig{dist-worker-session-model}に示すように、\code{WorkerSession}は\code{GraphMgr}インスタンスを保持しており、複数のグラフインスタンスを登録および実行するために使用されます。そのうち、各グラフインスタンスは\code{graph\_handle}で識別されます。同時に、各\code{WorkerSession}は\code{DeviceMgr}インスタンスを保持しており、ローカル計算デバイスのコレクションを管理するために使用されます。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/dist-worker-session-model.png}
-\caption{\code{WorkerSession}领域模型：可注册和运行多个图实例}
+\caption{\code{WorkerSession}ドメインモデル：複数のグラフインスタンスを登録および実行可能}
  \label{fig:dist-worker-session-model}
 \end{figure}
 
@@ -2651,18 +2660,16 @@ Status SessionMgr::CreateSession(const string& session,
 \end{c++}
 \end{leftbar}
 
-\end{content}
-
-\section{迭代执行}
+\section{反復実行}
 
 \begin{content}
 
-\subsection{启动执行}
+\subsection{実行の開始}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/dist-run-step-stage-1.png}
-\caption{GprcSession: 启动RunStep}
+\caption{GprcSession: RunStepの開始}
  \label{fig:dist-run-step-stage-1}
 \end{figure}
 
@@ -2845,8 +2852,6 @@ struct GrpcRemoteMaster : MasterInterface {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{GrpcMasterService::RunStepHandler}
-
 \begin{leftbar}
 \begin{c++}
 struct GrpcMasterService : AsyncServiceInterface {
@@ -3021,7 +3026,7 @@ Status ReffedClientGraph::RegisterPartitions(
 \end{c++}
 \end{leftbar}
 
-\subsection{图分裂：SplitByWorker}
+\subsection{グラフ分割：SplitByWorker}
 
 \subsubsection{ReffedClientGraph::DoBuildPartitions}
 
@@ -3036,7 +3041,7 @@ Status MasterSession::ReffedClientGraph::DoBuildPartitions(
 \end{c++}
 \end{leftbar}
 
-\subsection{注册图}
+\subsection{グラフの登録}
 
 \begin{figure}[H]
 \centering
@@ -3185,7 +3190,7 @@ Status GraphMgr::Register(
 \end{c++}
 \end{leftbar}
 
-\subsection{图分裂：SplitByDevice}
+\subsection{グラフ分割：SplitByDevice}
 
 \begin{leftbar}
 \begin{c++}
@@ -3291,7 +3296,7 @@ Status GraphMgr::InitItem(
 \end{c++}
 \end{leftbar}
 
-\subsection{运行图}
+\subsection{グラフの実行}
 
 \begin{figure}[H]
 \centering
@@ -3548,7 +3553,7 @@ void Worker::DoRunGraph(
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/dist-run-step-overview.png}
-\caption{Worker: RunStep形式化}
+\caption{Worker: RunStepの形式化}
  \label{fig:dist-run-step-overview}
 \end{figure}
 
@@ -3695,54 +3700,54 @@ Status GraphMgr::RecvOutputs(int64 step_id, NamedTensors* out) {
 \end{c++}
 \end{leftbar}
 
-\subsection{Rendzvous}
+\subsection{Rendezvous}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/rendezvous-hierarchy.png}
-\caption{Rendezvous层次结构}
+\caption{Rendezvous階層構造}
  \label{fig:rendezvous-hierarchy}
 \end{figure}
 
-\subsubsection{多态创建}
+\subsubsection{多態的作成}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/rendezvous-remote-mgr.png}
-\caption{RemoteRendezvous多态创建}
+\caption{RemoteRendezvousの多態的作成}
  \label{fig:rendezvous-remote-mgr}
 \end{figure}
 
-\subsubsection{发送}
+\subsubsection{送信}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/rendzvous-send.png}
-\caption{Rendezvous发送}
+\caption{Rendezvousの送信}
  \label{fig:rendzvous-send}
 \end{figure}
 
-\subsubsection{接收}
+\subsubsection{受信}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/rendezvous-recv-case-1.png}
-\caption{Rendezvous接收：分布式发送端与接收端在同一个Worker内}
+\caption{Rendezvousの受信：分散送信側と受信側が同じWorker内にある場合}
  \label{fig:rendezvous-recv-case-1}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.4\textwidth]{figures/rendezvous-recv-case-2.png}
-\caption{Rendezvous接收：分布式发送端与接收端不在同一个Worker内}
+\caption{Rendezvousの受信：分散送信側と受信側が同じWorker内にない場合}
  \label{fig:rendezvous-recv-case-2}
 \end{figure}
 
-\subsection{注销图}
+\subsection{グラフの登録解除}
 
 \end{content}
 
-\section{关闭会话}
+\section{セッションの終了}
 
 \begin{content}
 
@@ -3971,6 +3976,3 @@ GraphMgr::Item::~Item() {
 \end{leftbar}
 
 \end{content}
-
-
-

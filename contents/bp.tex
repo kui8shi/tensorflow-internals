@@ -1,20 +1,20 @@
 \begin{savequote}[45mm]
-\ascii{Any fool can write code that a computer can understand. Good programmers write code that humans can understand.}
-\qauthor{\ascii{- Martin Flower}}
+\ascii{コンピュータが理解できるコードを書くのは誰でもできる。優れたプログラマは人間が理解できるコードを書く。}
+\qauthor{\ascii{- マーティン・ファウラー}}
 \end{savequote}
 
-\chapter{BP算法} 
+\chapter{BPアルゴリズム} 
 \label{ch:bp}
 
 \begin{content}
 
 \end{content}
 
-\section{TensorFlow实现}
+\section{TensorFlowによる実装}
 
 \begin{content}
 
-\tf{}是一个实现了自动微分的软件系统。首先，它构造正向的计算图，实现计算图的前向计算。当调用\code{Optimizer.minimize}方法时，使用\code{compute\_gradients}方法，实现反向计算图的构造；使用\code{apply\_gradients}方法，实现参数更新的子图构造。
+\tf{}は自動微分を実装したソフトウェアシステムです。まず、順方向の計算グラフを構築し、計算グラフの順伝播を実現します。\code{Optimizer.minimize}メソッドが呼び出されると、\code{compute\_gradients}メソッドを使用して逆方向計算グラフの構築を実現し、\code{apply\_gradients}メソッドを使用してパラメータ更新のサブグラフ構築を実現します。
 
 \begin{leftbar}
 \begin{python}
@@ -30,11 +30,11 @@ class Optimizer(object):
 \end{python}
 \end{leftbar}
 
-\subsection{计算梯度}
+\subsection{勾配の計算}
 
-\code{compute\_gradients}将根据\code{loss}的值，求解\code{var\_list=[v1, v2, ..., vn]}的梯度，最终返回的结果为：\code{[(grad\_v1, v1), (grad\_v2, v2), ..., (grad\_vn, vn)]}。其中，\code{compute\_gradients}将调用\code{gradients}方法，构造反向传播的子图。
+\code{compute\_gradients}は\code{loss}の値に基づいて、\code{var\_list=[v1, v2, ..., vn]}の勾配を求め、最終的に次の結果を返します：\code{[(grad\_v1, v1), (grad\_v2, v2), ..., (grad\_vn, vn)]}。ここで、\code{compute\_gradients}は\code{gradients}メソッドを呼び出して、逆伝播のサブグラフを構築します。
 
-以一个简单实例，讲解反向子图的构造过程。首先，构造前向的计算图。
+簡単な例を用いて、逆方向サブグラフの構築プロセスを説明します。まず、順方向の計算グラフを構築します。
 
 \begin{leftbar}
 \begin{python}
@@ -47,7 +47,7 @@ global_step = tf.Variable(0, trainable=False, collections=[])
 \end{python}
 \end{leftbar}
 
-使用\code{compute\_gradients}构造反向传播的子图。
+\code{compute\_gradients}を使用して逆伝播のサブグラフを構築します。
 
 \begin{leftbar}
 \begin{python}
@@ -56,9 +56,9 @@ grads_and_vars = sgd.compute_gradients(loss)
 \end{python}
 \end{leftbar}
 
-\subsubsection{构造算法}
+\subsubsection{構築アルゴリズム}
 
-反向子图的构建算法可以形式化地描述为：
+逆方向サブグラフの構築アルゴリズムは形式的に次のように記述できます：
 
 \begin{leftbar}
 \begin{python}
@@ -70,26 +70,26 @@ def gradients(loss, grad=I):
 \end{python}
 \end{leftbar}
 
-首先，根据正向子图的拓扑图，构造一个虚拟的反向子图。之所以称为虚拟的，是因为真实的反向子图要比它复杂得多；更准确的说，虚拟的反向子图中的一个节点，对应于真实的反向子图中的一个局部子图。
+まず、順方向サブグラフのトポロジーグラフに基づいて、仮想の逆方向サブグラフを構築します。仮想と呼ばれるのは、実際の逆方向サブグラフがそれよりもはるかに複雑だからです。より正確に言えば、仮想の逆方向サブグラフの1つのノードは、実際の逆方向サブグラフの局所的なサブグラフに対応します。
 
-同时，正向子图输出的最后一个节点，其输出梯度全为\ascii{1}的一个\code{Tensor}，作为反向子图的初始的梯度值，常常记为\code{I}。
+同時に、順方向サブグラフの最後のノードの出力勾配は、すべて1の\code{Tensor}となり、これが逆方向サブグラフの初期勾配値として使用され、しばしば\code{I}と記されます。
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/bp-back-graph-construction.png}
-\caption{构造反向传播子图}
+\caption{逆伝播サブグラフの構築}
  \label{fig:bp-back-graph-construction}
 \end{figure}
 
-接下来，根据虚拟的反向子图构造真实的反向子图。首先，根据该反向的虚拟子图执行拓扑排序算法，得到该虚拟的反向子图的一个拓扑排序；然后，按照该拓扑排序，对每个正向子图中的\ascii{OP}寻找其「梯度函数」；最后，调用该梯度函数，该梯度函数将构造该\ascii{OP}对应的反向的局部子图。
+次に、仮想の逆方向サブグラフに基づいて実際の逆方向サブグラフを構築します。まず、この逆方向の仮想サブグラフに対してトポロジカルソートアルゴリズムを実行し、この仮想の逆方向サブグラフのトポロジカルソートを得ます。次に、このトポロジカルソートに従って、順方向サブグラフの各\ascii{OP}に対して「勾配関数」を探します。最後に、その勾配関数を呼び出し、その勾配関数がその\ascii{OP}に対応する逆方向の局所サブグラフを構築します。
 
-综上述，正向的一个\ascii{OP}对应反向的一个局部子图，并由该\ascii{OP}的梯度函数负责构造。当整个拓扑排序算法完成后，正向子图中的每个\ascii{OP}在反向子图中都能找到对应的局部子图。
+以上をまとめると、順方向の1つの\ascii{OP}は逆方向の局所サブグラフに対応し、その\ascii{OP}の勾配関数が構築を担当します。トポロジカルソートアルゴリズム全体が完了すると、順方向サブグラフの各\ascii{OP}は逆方向サブグラフで対応する局所サブグラフを見つけることができます。
 
-例如，在上例中，正向图中最后一个\ascii{OP}：求取平方的函数为例，讲述梯度函数的工作原理。
+例えば、上記の例では、順方向グラフの最後の\ascii{OP}である二乗関数を例に、勾配関数の動作原理を説明します。
 
-\subsubsection{梯度函数原型}
+\subsubsection{勾配関数のプロトタイプ}
 
-一般地，梯度函数满足如下原型：
+一般に、勾配関数は次のようなプロトタイプを満たします：
 
 \begin{leftbar}
 \begin{python}
@@ -98,31 +98,31 @@ def op_grad_func(op, grad):
 \end{python}
 \end{leftbar}
 
-其中，梯度函数由\code{ops.RegisterGradient}完成注册，并放在保存梯度函数的仓库中。以后，便可以根据正向\ascii{OP}的名字，索引对应的梯度函数了。
+ここで、勾配関数は\code{ops.RegisterGradient}によって登録され、勾配関数を保存するリポジトリに配置されます。その後、順方向\ascii{OP}の名前に基づいて対応する勾配関数をインデックス化できるようになります。
 
-对于一个梯度函数，第一个参数\code{op}表示正向计算的\ascii{OP}，根据它可以获取正向计算时\ascii{OP}的输入和输出；第二个参数\code{grad}，是反向子图中上游节点传递过来的梯度，它是一个已经计算好的梯度值(初始梯度值全为1)。
+勾配関数の場合、最初のパラメータ\code{op}は順方向計算の\ascii{OP}を表し、これに基づいて順方向計算時の\ascii{OP}の入力と出力を取得できます。2番目のパラメータ\code{grad}は、逆方向サブグラフの上流ノードから伝播された勾配であり、これはすでに計算された勾配値です（初期勾配値はすべて1）。
 
-\subsubsection{实战：平方函数}
+\subsubsection{実践：二乗関数}
 
-举个简单的例子，仅使用输入计算梯度。\code{y=square(x)}，用于求取\code{x}的平方。首先，构造正向计算图：
+簡単な例を挙げて、入力のみを使用して勾配を計算します。\code{y=square(x)}は\code{x}の二乗を求めるために使用されます。まず、順方向計算グラフを構築します：
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/bp-square-forward-graph.png}
-\caption{Square函数：正向传播子图}
+\caption{Square関数：順伝播サブグラフ}
  \label{fig:bp-square-forward-graph}
 \end{figure}
 
-然后，反向构造虚拟的反向子图。根据该虚拟的反向子图的拓扑排序，构造真正的反向计算子图。假如，当前节点为\code{Square}，根据其OP名称，从仓库中找到对应的梯度函数\code{SquareGrad}。
+次に、仮想の逆方向サブグラフを構築します。この仮想の逆方向サブグラフのトポロジカルソートに基づいて、実際の逆方向計算サブグラフを構築します。現在のノードが\code{Square}であると仮定すると、そのOP名に基づいて、リポジトリから対応する勾配関数\code{SquareGrad}を見つけます。
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/bp-square-backward-graph.png}
-\caption{Square函数：反向传播子图}
+\caption{Square関数：逆伝播サブグラフ}
  \label{fig:bp-square-backward-graph}
 \end{figure}
 
-因为，\code{y=Square(x)}的导数为\code{y'=2*x}。因此，其梯度函数\code{SquareGrad}的实现为：
+\code{y=Square(x)}の導関数が\code{y'=2*x}であるため、その勾配関数\code{SquareGrad}の実装は次のようになります：
 
 \begin{leftbar}
 \begin{python}
@@ -135,20 +135,20 @@ def SquareGrad(op, grad):
 \end{python}
 \end{leftbar}
 
-调用该梯度函数后，将得到正向\code{Square}的\ascii{OP}，对应的反向子图\code{SquareGrad}。它需要使用\code{Square}的输入，完成相应的梯度计算。
+この勾配関数を呼び出すと、順方向の\code{Square}の\ascii{OP}に対応する逆方向サブグラフ\code{SquareGrad}が得られます。これは\code{Square}の入力を使用して、対応する勾配計算を完了する必要があります。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/bp-square-backward-graph-2.png}
-\caption{Square函数：反向传播子图}
+\caption{Square関数：逆伝播サブグラフ}
  \label{fig:bp-square-backward-graph-2}
 \end{figure}
 
-一般地，正向子图中的一个\ascii{OP}，对应反向子图中的一个局部子图。因为，正向\ascii{OP}的梯度函数实现，可能需要多个\ascii{OP}才能完成相应的梯度计算。例如，\code{Square}的\ascii{OP}，对应梯度函数构造了包含两个\ascii{2}个乘法\ascii{OP}。
+一般に、順方向サブグラフの1つの\ascii{OP}は、逆方向サブグラフの局所サブグラフに対応します。これは、順方向\ascii{OP}の勾配関数の実装が、対応する勾配計算を完了するために複数の\ascii{OP}を必要とする可能性があるためです。例えば、\code{Square}の\ascii{OP}に対応する勾配関数は、2つの乗算\ascii{OP}を含むサブグラフを構築しています。
 
-\subsubsection{实战：指数函数}
+\subsubsection{実践：指数関数}
 
-再举个简单的例子，仅使用输出计算梯度。\code{y=exp(x)}，指数函数；其导数为\code{y'=exp(x)}，即\code{y'=y}。因此，其梯度函数实现为：
+もう一つの簡単な例を挙げて、出力のみを使用して勾配を計算します。\code{y=exp(x)}は指数関数です。その導関数は\code{y'=exp(x)}、つまり\code{y'=y}です。したがって、その勾配関数の実装は次のようになります：
 
 \begin{leftbar}
 \begin{python}
@@ -162,24 +162,24 @@ def _ExpGrad(op, grad):
 \end{python}
 \end{leftbar}
 
-如下图所示，正向子图中该\ascii{OP}的输出，用于对应的反向的局部子图的梯度运算。而且，该局部子图进包含一个节点。
+下図に示すように、順方向サブグラフのこの\ascii{OP}の出力は、対応する逆方向の局所サブグラフの勾配計算に使用されます。さらに、この局所サブグラフは1つのノードしか含んでいません。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/bp-exp-backward-graph.png}
-\caption{Exp函数：反向传播子图}
+\caption{Exp関数：逆伝播サブグラフ}
  \label{fig:bp-exp-backward-graph}
 \end{figure}
 
-\subsection{应用梯度}
+\subsection{勾配の適用}
 
-再做一个简单的总结，当调用\code{Optimizer.minimize}方法时，使用\code{compute\_gradients}方法，实现反向计算图的构造；使用\code{apply\_gradients}方法，实现参数更新的子图构造。
+簡単にまとめると、\code{Optimizer.minimize}メソッドが呼び出されると、\code{compute\_gradients}メソッドを使用して逆方向計算グラフの構築を実現し、\code{apply\_gradients}メソッドを使用してパラメータ更新のサブグラフ構築を実現します。
 
-\subsubsection{构造算法}
+\subsubsection{構築アルゴリズム}
 
-首先，\code{compute\_gradients}在运行时将根据\code{loss}的值，求解\code{var\_list=[v1, v2, ..., vn]}的梯度，最终返回的结果为：\code{vars\_and\_grads = [(grad\_v1, v1), (grad\_v2, v2), ..., (grad\_vn, vn)]}。
+まず、\code{compute\_gradients}は実行時に\code{loss}の値に基づいて\code{var\_list=[v1, v2, ..., vn]}の勾配を求め、最終的に次の結果を返します：\code{vars\_and\_grads = [(grad\_v1, v1), (grad\_v2, v2), ..., (grad\_vn, vn)]}。
 
-然后，\code{apply\_gradients}迭代\code{grads\_and\_vars}，对于每个\code{(grad\_vi, vi)}，构造一个更新\code{vi}的子图。其中，算法可以形式化地描述为：
+次に、\code{apply\_gradients}は\code{grads\_and\_vars}を反復処理し、各\code{(grad\_vi, vi)}に対して\code{vi}を更新するサブグラフを構築します。アルゴリズムは形式的に次のように記述できます：
 
 \begin{leftbar}
 \begin{python}
@@ -189,31 +189,31 @@ def apply_gradients(grads_and_vars, learning_rate):
 \end{python}
 \end{leftbar}
 
-其中，\code{apply\_gradient\_descent}将构造一个使用梯度下降算法更新参数的计算子图。将\code{(grad, var)}的二元组，及其\code{learning\_rate}的\code{Const OP}作为\code{ApplyGradientDescent}的输入。
+ここで、\code{apply\_gradient\_descent}は勾配降下法を使用してパラメータを更新する計算サブグラフを構築します。\code{(grad, var)}の2つ組と\code{learning\_rate}の\code{Const OP}を\code{ApplyGradientDescent}の入力として使用します。
 
-\code{ApplyGradientDescent}将应用\code{var <- var - learning*grad}的运算规则，实现\code{var}的就地更新。
+\code{ApplyGradientDescent}は\code{var <- var - learning*grad}の演算規則を適用し、\code{var}のインプレース更新を実現します。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/bp-update-w.png}
-\caption{参数更新子图}
+\caption{パラメータ更新サブグラフ}
  \label{fig:bp-update-w}
 \end{figure}
 
-\subsubsection{参数更新汇总}
+\subsubsection{パラメータ更新の集約}
 
-如果存在多个训练的Variable，最终生成多个更新参数的局部子图。它们通过一个名为\code{update}的\code{NoOp}，使用控制依赖边汇总在一起。因为各个\code{Variable}之间相互独立，可以实现最大化的并发。
+複数のトレーニング用Variableが存在する場合、最終的に複数のパラメータ更新の局所サブグラフが生成されます。これらは\code{update}という名前の\code{NoOp}を通じて、制御依存エッジを使用して集約されます。各\code{Variable}は互いに独立しているため、最大限の並行性を実現できます。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/bp-update-all-params.png}
-\caption{参数更新汇总}
+\caption{パラメータ更新の集約}
  \label{fig:bp-update-all-params}
 \end{figure}
 
-\subsubsection{探秘train\_op}
+\subsubsection{train\_opの探求}
 
-经过一轮\ascii{Step}运算，根据梯度，完成参数的更新，最终完成\code{global\_step}加1。而实现\code{global\_step}加\ascii{1}的\ascii{OP}为\code{AssignAdd}，并标记为\code{train\_op}；它持有\code{global\_step}变量的引用，然后完成就地修改，使其值加\ascii{1}。
+1ラウンドの\ascii{Step}計算を経て、勾配に基づいてパラメータの更新を完了し、最終的に\code{global\_step}を1増加させます。\code{global\_step}を1増加させる\ascii{OP}は\code{AssignAdd}であり、\code{train\_op}としてマークされます。これは\code{global\_step}変数への参照を保持し、その後インプレース修正を行って値を1増加させます。
 
 \begin{figure}[!h]
 \centering
@@ -222,20 +222,20 @@ def apply_gradients(grads_and_vars, learning_rate):
  \label{fig:bp-train-op}
 \end{figure}
 
-\subsubsection{工作流}
+\subsubsection{ワークフロー}
 
-如\refig{bp-train-pipeline}所示，整个训练过程，一次\ascii{Step}的训练过程由前向计算，反向梯度计算，参数更新，及其\code{global\_step}计数四个基本过程组成。
+\refig{bp-train-pipeline}に示すように、トレーニングプロセス全体において、1回の\ascii{Step}のトレーニングプロセスは、順伝播計算、逆伝播勾配計算、パラメータ更新、および\code{global\_step}カウントの4つの基本プロセスで構成されています。
 
-其中，每一轮\ascii{Step}从开始\code{Session.run}执行开始。通过前向子图的计算，得到每个\ascii{OP}的输出，并作为下游\ascii{OP}的输入。
+各ラウンドの\ascii{Step}は\code{Session.run}の実行から始まります。順方向サブグラフの計算を通じて、各\ascii{OP}の出力を得て、それを下流の\ascii{OP}の入力として使用します。
 
-当前向子图完成计算后，再以初始梯度向量$ I $为输入，反向计算各个训练参数的梯度，最终得到各个训练参数的梯度列表，并以\code{grads\_and\_vars = [(grad\_v1, v1), ..., (grad\_vn, vn)]}的二元组列表表示。
+順方向サブグラフの計算が完了すると、初期勾配ベクトル$ I $を入力として、各トレーニングパラメータの勾配を逆方向に計算し、最終的に各トレーニングパラメータの勾配リストを得ます。これは\code{grads\_and\_vars = [(grad\_v1, v1), ..., (grad\_vn, vn)]}の2つ組のリストとして表されます。
 
-随后，参数更新子图以\code{grads\_and\_vars}为输入，执行梯度下降的更新算法；最后，通过\code{train\_op}完成\code{global\_step}值加\ascii{1}，至此一轮\ascii{Step}执行完成。
+その後、パラメータ更新サブグラフは\code{grads\_and\_vars}を入力として、勾配降下の更新アルゴリズムを実行します。最後に、\code{train\_op}を通じて\code{global\_step}の値を1増加させ、これで1ラウンドの\ascii{Step}の実行が完了します。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/bp-train-pipeline.png}
-\caption{模型训练的工作流}
+\caption{モデルトレーニングのワークフロー}
  \label{fig:bp-train-pipeline}
 \end{figure}
 

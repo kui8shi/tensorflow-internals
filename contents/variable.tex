@@ -3,20 +3,20 @@
 \qauthor{\ascii{- Martin Flower}}
 \end{savequote}
 
-\chapter{变量} 
+\chapter{変数} 
 \label{ch:variable}
 
 \begin{content}
 
-\ascii{Variable}是一个特殊的\ascii{OP}，它拥有状态\ascii{(Stateful)}。从实现技术探究，\ascii{Variable}的\ascii{Kernel}实现直接持有一个\ascii{Tensor}实例，其生命周期与变量一致。相对于普通的\ascii{Tensor}实例，其生命周期仅对本次迭代\ascii{(Step)}有效；而\ascii{Variable}对多个迭代都有效，甚至可以存储到文件系统，或从文件系统中恢复。
+\ascii{Variable}は特別な\ascii{OP}であり、状態\ascii{(Stateful)}を持っています。実装技術の観点から見ると、\ascii{Variable}の\ascii{Kernel}実装は直接\ascii{Tensor}インスタンスを保持し、その寿命は変数と一致します。通常の\ascii{Tensor}インスタンスの寿命が現在の反復\ascii{(Step)}でのみ有効であるのに対し、\ascii{Variable}は複数の反復にわたって有効であり、ファイルシステムに保存したり、ファイルシステムから復元したりすることさえできます。
 
 \end{content}
 
-\section{实战：线性模型}
+\section{実践：線形モデル}
 
 \begin{content}
 
-以一个简单的线性模型为例(为了简化问题，此处省略了训练子图)。首先，使用\code{tf.placeholder}定义模型的输入，然后定义了两个全局变量，同时它们都是训练参数，最后定义了一个简单的线性模型。
+簡単な線形モデルを例にとります（問題を簡略化するため、ここでは訓練サブグラフを省略しています）。まず、\code{tf.placeholder}を使用してモデルの入力を定義し、次に2つのグローバル変数を定義します。これらは両方とも訓練パラメータであり、最後に簡単な線形モデルを定義します。
 
 \begin{leftbar}
 \begin{python}
@@ -27,8 +27,8 @@ y = tf.matmul(x, W) + b
 \end{python}
 \end{leftbar}
 
-在使用变量之前，必须对变量进行初始化。按照习惯用法，使用\code{tf.global\_variables}
-\code{\_initializer()}将所有全局变量的初始化器汇总，并对其进行初始化。
+変数を使用する前に、変数を初期化する必要があります。慣例に従い、\code{tf.global\_variables}
+\code{\_initializer()}を使用してすべてのグローバル変数の初期化子を集約し、初期化を行います。
 
 \begin{leftbar}
 \begin{python}
@@ -39,37 +39,37 @@ with tf.Session() as sess:
 \end{python}
 \end{leftbar}
 
-按照既有经验，其计算图大致如\refig{tf-linear-model}所示。
+既存の経験によると、その計算グラフは大まかに\refig{tf-linear-model}のようになります。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.6\textwidth]{figures/tf-linear-model.png}
-\caption{计算图: 线性加权和}
+\caption{計算グラフ: 線形重み付き和}
  \label{fig:tf-linear-model}
 \end{figure}
 
-事实上，正如\refig{tf-real-linear-model}所示，实际的计算图要复杂得多，让我们从头说起。
+実際には、\refig{tf-real-linear-model}に示すように、実際の計算グラフははるかに複雑です。最初から説明しましょう。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/tf-real-linear-model.png}
-\caption{计算图: 线性加权和}
+\caption{計算グラフ: 線形重み付き和}
  \label{fig:tf-real-linear-model}
 \end{figure}
 
 \end{content}
 
-\section{初始化模型}
+\section{モデルの初期化}
 
 \begin{content}
 
-\ascii{Variable}是一个特殊的OP，它拥有状态\ascii{(Stateful)}。如果从实现技术探究，\ascii{Variable}的K\ascii{ernel}实现直接持有一个\ascii{Tensor}实例，其生命周期与\ascii{Variable}一致。相对于普通的\ascii{Tensor}实例，其生命周期仅对本次迭代\ascii{(Step)}有效；而\ascii{Variable}对多个迭代\ascii{(Step)}都有效，甚至可以持久化到文件系统，或从文件系统中恢复。
+\ascii{Variable}は特別な\ascii{OP}であり、状態\ascii{(Stateful)}を持っています。実装技術の観点から見ると、\ascii{Variable}の\ascii{Kernel}実装は直接\ascii{Tensor}インスタンスを保持し、その寿命は\ascii{Variable}と一致します。通常の\ascii{Tensor}インスタンスの寿命が現在の反復\ascii{(Step)}でのみ有効であるのに対し、\ascii{Variable}は複数の反復\ascii{(Step)}にわたって有効であり、ファイルシステムに永続化したり、ファイルシステムから復元したりすることさえできます。
 
-\subsection{操作变量}
+\subsection{変数の操作}
 
-存在几个操作\ascii{Variable}的特殊OP用于修改变量的值，例如\ascii{Assign, AssignAdd}等。\ascii{Variable}所持有的\ascii{Tensor}以引用的方式输入到\ascii{Assign}中，\ascii{Assign}根据初始值\ascii{(Initial Value)}或新值，就地修改\ascii{Tensor}内部的值，最后以引用的方式输出该\ascii{Tensor}。
+変数の値を変更するための特別な\ascii{OP}がいくつか存在します。例えば、\ascii{Assign, AssignAdd}などです。\ascii{Variable}が保持する\ascii{Tensor}は参照としてA\ascii{ssign}に入力され、\ascii{Assign}は初期値\ascii{(Initial Value)}または新しい値に基づいて\ascii{Tensor}内部の値をその場で修正し、最後にその\ascii{Tensor}を参照として出力します。
 
-从设计角度看，\ascii{Variable}可以看做\ascii{Tensor}的包装器，\ascii{Tensor}所支持的所有操作都被\ascii{Variable}重载实现。也就是说，\ascii{Variable}可以出现在\ascii{Tensor}的所有地方。例如，
+設計の観点から見ると、\ascii{Variable}は\ascii{Tensor}のラッパーと見なすことができ、\ascii{Tensor}がサポートするすべての操作が\ascii{Variable}によってオーバーロードされて実装されています。つまり、\ascii{Variable}は\ascii{Tensor}のあらゆる場所に現れることができます。例えば、
 
 \begin{leftbar}
 \begin{python}
@@ -88,11 +88,11 @@ w.assign_add(1.0)
 \end{python}
 \end{leftbar}
 
-\subsection{初始值}
+\subsection{初期値}
 
-一般地，在使用变量之前，必须对变量进行初始化。事实上，\ascii{TensorFlow}设计了一个精巧的变量初始化模型。\ascii{Variable}根据初始值\ascii{(Initial Value)}推演\ascii{Variable}的数据类型，并确定\ascii{Tensor}的形状\ascii{(Shape)}。
+一般的に、変数を使用する前に、変数を初期化する必要があります。実際、\ascii{TensorFlow}は巧妙な変数初期化モデルを設計しています。\ascii{Variable}は初期値\ascii{(Initial Value)}に基づいて\ascii{Variable}のデータ型を推論し、\ascii{Tensor}の形状\ascii{(Shape)}を決定します。
 
-例如，\code{tf.zeros}称为\ascii{Variable}的初始值，它确定了\ascii{Variable}的类型为\code{int32}，且\ascii{Shape}为\code{[784, 10]}。
+例えば、\code{tf.zeros}は\ascii{Variable}の初期値と呼ばれ、\ascii{Variable}の型が\code{int32}で、\ascii{Shape}が\code{[784, 10]}であることを決定します。
 
 \begin{leftbar}
 \begin{python}
@@ -101,15 +101,15 @@ W = tf.Variable(tf.zeros([784,10]), name='W')
 \end{python}
 \end{leftbar}
 
-如下表所示，构造变量初始值的常见\ascii{OP}包括：
+以下の表に示すように、変数の初期値を構築する一般的な\ascii{OP}には以下のようなものがあります：
 
-\subsection{初始化器}
+\subsection{初期化子}
 
-另外，变量通过初始化器\ascii{(Initializer)}在初始化期间，将初始化值赋予\ascii{Variable}内部所持有\ascii{Tensor}，完成\ascii{Variable}的就地修改。
+また、変数は初期化子\ascii{(Initializer)}を通じて、初期化期間中に初期化値を\ascii{Variable}内部が保持する\ascii{Tensor}に割り当て、\ascii{Variable}のその場での修正を完了します。
 
-在变量使用之前，必须保证变量被初始化器已初始化。事实上，变量初始化过程，即运行变量的初始化器。
+変数を使用する前に、変数が初期化子によって初期化されていることを確認する必要があります。実際、変数の初期化プロセスは、変数の初期化子を実行することです。
 
-证如上例\code{W}的定义，可以如下完成\code{W}的初始化。此处，\code{W.initializer}实际上为\ascii{Assign}的\ascii{OP}，这是\ascii{Variable}默认的初始化器。
+上記の例の\code{W}の定義のように、以下のように\code{W}の初期化を完了することができます。ここで、\code{W.initializer}は実際には\ascii{Assign}の\ascii{OP}であり、これは\ascii{Variable}のデフォルトの初期化子です。
 
 \begin{leftbar}
 \begin{python}
@@ -119,22 +119,21 @@ with tf.Session() as sess:
 \end{python}
 \end{leftbar}
 
-一旦完成\ascii{Variable}的初始化，其类型与值得以确定。随后可以使用\ascii{Assign}族的\ascii{OP}(例如\ascii{Assign, AssignAdd}等)修改\ascii{Variable}的值。
+\ascii{Variable}の初期化が完了すると、その型と値が決定されます。その後、\ascii{Assign}族の\ascii{OP}（例えば\ascii{Assign, AssignAdd}など）を使用して\ascii{Variable}の値を修正することができます。
 
-需要注意的是，在\ascii{TensorBoard}中展示\ascii{Assign}的输入，其边使用特殊的\ascii{ref}标识。数据流向与之刚好相反，否则计算图必然出现环，显然违反了\ascii{DAG}(有向无环图)的基本需求。
+注意すべきは、\ascii{TensorBoard}で\ascii{Assign}の入力を表示する際、その辺は特別な\ascii{ref}識別子を使用することです。データの流れの方向はちょうど逆になっています。そうでなければ、計算グラフは必然的に循環を含むことになり、明らかに\ascii{DAG}（有向非巡回グラフ）の基本要件に違反します。
 
-\subsection{快照}
+\subsection{スナップショット}
 
-如果要读取变量的值，则通过\ascii{Identity}恒等变化，直接输出变量所持有的\ascii{Tensor}。\ascii{Identity}去除了\ascii{Variable}的引用标识，同时也避免了内存拷贝。
+変数の値を読み取る場合は、\ascii{Identity}恒等変換を通じて、変数が保持する\ascii{Tensor}を直接出力します。\ascii{Identity}は\ascii{Variable}の参照識別子を削除すると同時に、メモリのコピーも回避します。
 
-\ascii{Identity}操作\ascii{Variable}常称为一个快照\ascii{(Snapshot)}，表示\ascii{Variable}当前的值。
+\ascii{Identity}による\ascii{Variable}の操作は、通常スナップショット\ascii{(Snapshot)}と呼ばれ、\ascii{Variable}の現在の値を表します。
 
-事实上，通过\ascii{Identity}将\ascii{Variable}转变为普通的\ascii{Tensor}，使得它能够兼容所有\ascii{Tensor}的操作。
+実際、\ascii{Identity}を通じて\ascii{Variable}を通常の\ascii{Tensor}に変換することで、すべての\ascii{Tensor}操作と互換性を持たせることができます。
 
+\subsection{変数サブグラフ}
 
-\subsection{变量子图}
-
-例如，变量\ascii{W}的定义如下。
+例えば、変数\ascii{W}の定義は以下の通りです。
 
 \begin{leftbar}
 \begin{python}
@@ -142,19 +141,18 @@ W = tf.Variable(tf.zeros([784,10]), name='W')
 \end{python}
 \end{leftbar}
 
-\code{tf.zeros([784,10])}常称为初始值，它通过初始化器\ascii{Assign}，将\code{W}内部持有的\ascii{Tensor}以引用的形式就地修改为该初始值；同时，\ascii{Identity}去除了\ascii{Variable}的引用标识，实现了\ascii{Variable}的读取。
+\code{tf.zeros([784,10])}は初期値と呼ばれ、初期化子\ascii{Assign}を通じて、\code{W}内部が保持する\ascii{Tensor}を参照の形でその場で修正して初期値にします。同時に、\ascii{Identity}が\ascii{Variable}の参照識別子を削除し、\ascii{Variable}の読み取りを実現します。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/variable-initialization-model.png}
-\caption{变量子图}
+\caption{変数サブグラフ}
  \label{fig:variable-initialization-model}
 \end{figure}
 
+\subsection{初期化プロセス}
 
-\subsection{初始化过程}
-
-更为常见的是，通过调用\code{tf.global\_variables\_initializer()}将所有变量的初始化器进行汇总，然后启动\ascii{Session}运行该\ascii{OP}。
+より一般的なのは、\code{tf.global\_variables\_initializer()}を呼び出して、すべての変数の初期化子を集約し、その後\ascii{Session}を起動してその\ascii{OP}を実行することです。
 
 \begin{leftbar}
 \begin{python}
@@ -162,22 +160,22 @@ init = tf.global_variables_initializer()
 \end{python}
 \end{leftbar}
 
-事实上，搜集所有全局变量的初始化器的\ascii{OP}是一个\ascii{NoOp}，即不存在输入，也不存在输出。所有变量的初始化器通过控制依赖边与该\ascii{NoOp}相连，保证所有的全局变量被初始化。
+実際、すべてのグローバル変数の初期化子を収集する\ascii{OP}は\ascii{NoOp}であり、つまり入力も出力も存在しません。すべての変数の初期化子は制御依存エッジを通じてこの\ascii{NoOp}に接続され、すべてのグローバル変数が初期化されることを保証します。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/variable-initialization-no-op.png}
-\caption{初始化OP}
+\caption{初期化OP}
  \label{fig:variable-initialization-no-op}
 \end{figure}
 
-\subsection{同位关系}
+\subsection{コロケーション関係}
 
-同位关系是一种特殊的设备约束关系。显而易见，\ascii{Assign, Identity}这两个\ascii{OP}与\ascii{Variable}关系极其紧密，分别实现了变量的修改与读取。因此，它们必须与\ascii{Variable}在同一个设备上执行；这样的关系，常称为同位关系\ascii{(Colocation)}。
+コロケーション関係は特殊なデバイス制約関係です。明らかに、\ascii{Assign, Identity}これら2つの\ascii{OP}は\ascii{Variable}と非常に密接な関係にあり、それぞれ変数の修正と読み取りを実現します。したがって、これらは\ascii{Variable}と同じデバイス上で実行される必要があります。このような関係は、通常コロケーション関係\ascii{(Colocation)}と呼ばれます。
 
-可以在\ascii{Assign/Identity}节点上指定\code{\_class}属性值：\code{[s: "loc:@W"]}，它表示这两个\ascii{OP}与\code{W}放在同一个设备上运行。
+\ascii{Assign/Identity}ノード上で\code{\_class}属性値：\code{[s: "loc:@W"]}を指定することができます。これは、これら2つの\ascii{OP}が\code{W}と同じデバイス上で実行されることを示しています。
 
-例如，以\code{W/read}节点为例，该节点增加了\code{\_class}属性，指示与\code{W}的同位关系。
+例えば、\code{W/read}ノードを例にとると、このノードには\code{\_class}属性が追加され、\code{W}とのコロケーション関係を示しています。
 
 \begin{leftbar}
 \begin{python}
@@ -203,9 +201,9 @@ node {
 \end{python}
 \end{leftbar}
 
-\subsection{初始化依赖}
+\subsection{初期化依存関係}
 
-如果一个变量初始化需要依赖于另外一个变量的初始值，则需要特殊地处理。例如，变量\code{V}的初始值依赖于\code{W}的初始值，可以通过\code{W.initialized\_value()}指定。
+ある変数の初期化が別の変数の初期値に依存している場合、特別な処理が必要です。例えば、変数\code{V}の初期値が\code{W}の初期値に依存している場合、\code{W.initialized\_value()}を通じて指定することができます。
 
 \begin{leftbar}
 \begin{python}
@@ -214,17 +212,16 @@ V = tf.Variable(W.initialized_value(), name='V')
 \end{python}
 \end{leftbar}
 
-事实上，两者通过\ascii{Identity}衔接，并显式地添加了依赖控制边，保证\code{W}在\code{V}之前初始化。此处，存在两个\ascii{Identity}的\ascii{OP}，但职责不一样，它们分别完成初始化依赖和变量读取。
-
+実際、両者は\ascii{Identity}を通じて接続され、明示的に依存制御エッジが追加され、\code{W}が\code{V}より先に初期化されることを保証します。ここでは、2つの\ascii{Identity}の\ascii{OP}が存在しますが、責任は異なり、それぞれ初期化依存関係と変数読み取りを完了します。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/variable-initialization-dependency-1.png}
-\caption{初始化依赖}
+\caption{初期化依存関係}
  \label{fig:variable-initialization-dependency-1}
 \end{figure}
 
-同样地，可以通过调用\code{tf.global\_variables\_initializer()}将变量的所有初始化器进行汇总，然后启动\ascii{Session}完成所有变量的初始化。
+同様に、\code{tf.global\_variables\_initializer()}を呼び出して、変数のすべての初期化子を集約し、その後\ascii{Session}を起動してすべての変数の初期化を完了することができます。
 
 \begin{leftbar}
 \begin{python}
@@ -232,18 +229,18 @@ init = tf.global_variables_initializer()
 \end{python}
 \end{leftbar}
 
-按照依赖关系，因为增加了\code{W/Assign}与\code{Identity}之间的控制依赖边，从而巧妙地实现了\code{W}在\code{V}之前完成初始化，并通过\code{W}当前的初始化值，最终完成\code{V}的初始化。
+依存関係に従って、\code{W/Assign}と\code{Identity}の間に制御依存エッジが追加されたため、巧妙に\code{W}が\code{V}より先に初期化を完了し、\code{W}の現在の初期化値を通じて、最終的に\code{V}の初期化を完了します。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/variable-initialization-dependency-2.png}
-\caption{初始化OP}
+\caption{初期化OP}
  \label{fig:variable-initialization-dependency-2}
 \end{figure}
 
-\subsection{初始化器列表}
+\subsection{初期化子リスト}
 
-可以使用\code{variables\_initializer}构建变量列表的初始化器列表。其中，\code{group}将构造一个仅控制依赖于\code{\_initialier\_list()}的\ascii{NoOP}。
+\code{variables\_initializer}を使用して、変数リストの初期化子リストを構築することができます。ここで、\code{group}は\code{\_initialier\_list()}にのみ制御依存する\ascii{NoOP}を構築します。
 
 \begin{leftbar}
 \begin{python}
@@ -254,7 +251,7 @@ def variables_initializer(var_list, name="init"):
 \end{python}
 \end{leftbar}
 
-例如，全局变量列表的初始化器列表可以如下构造。
+例えば、グローバル変数リストの初期化子リストは以下のように構築することができます。
 
 \begin{leftbar}
 \begin{python}
@@ -265,15 +262,15 @@ def global_variables_initializer():
 
 \end{content}
 
-\section{变量分组}
+\section{変数のグループ化}
 
 \begin{content}
 
-默认地，\ascii{Variable}被划分在全局变量和训练变量的集合中。正如上例，\code{W, V}自动划分至全局变量和训练变量的集合中。
+デフォルトで、\ascii{Variable}はグローバル変数と訓練変数のコレクションに分類されます。上記の例のように、\code{W, V}は自動的にグローバル変数と訓練変数のコレクションに分類されます。
 
-\subsection{全局变量}
+\subsection{グローバル変数}
 
-可以通过\code{tf.global\_variables()}方便地检索全局变量的集合。在分布式环境中，全局变量能在不同的进程间实现参数共享。
+\code{tf.global\_variables()}を通じて、グローバル変数のコレクションを簡単に取得することができます。分散環境では、グローバル変数は異なるプロセス間でパラメータ共有を実現することができます。
 
 \begin{leftbar}
 \begin{python}
@@ -282,9 +279,9 @@ def global_variables():
 \end{python}
 \end{leftbar}
 
-\subsection{本地变量}
+\subsection{ローカル変数}
 
-可以通过\code{tf.local\_variables()}方便地检索本地变量的集合。
+\code{tf.local\_variables()}を通じて、ローカル変数のコレクションを簡単に取得することができます。
 
 \begin{leftbar}
 \begin{python}
@@ -293,7 +290,7 @@ def local_variables():
 \end{python}
 \end{leftbar}
 
-可以使用\code{local\_variable}的语法糖，构建一个本地变量。
+\code{local\_variable}の構文糖を使用して、ローカル変数を構築することができます。
 
 \begin{leftbar}
 \begin{python}
@@ -305,11 +302,11 @@ def local_variable(initial_value, validate_shape=True, name=None):
 \end{python}
 \end{leftbar}
 
-本地变量表示进程内的共享变量，它通常不需要做断点恢复\ascii{(Checkpoint)}，仅用于临时的计数器的用途。例如，在分布式环境中，使用本地变量记录该进程已读数据的\ascii{Epoch}数目。
+ローカル変数はプロセス内の共有変数を表し、通常はチェックポイント\ascii{(Checkpoint)}を行う必要がなく、一時的なカウンターの用途にのみ使用されます。例えば、分散環境では、ローカル変数を使用してそのプロセスが既に読み込んだデータの\ascii{Epoch}数を記録します。
 
-\subsection{训练变量}
+\subsection{訓練変数}
 
-可以通过\code{tf.trainable\_variables()}检索训练变量的集合。在机器学习中，训练变量表示模型参数。
+\code{tf.trainable\_variables()}を通じて、訓練変数のコレクションを取得することができます。機械学習では、訓練変数はモデルパラメータを表します。
 
 \begin{leftbar}
 \begin{python}
@@ -320,9 +317,9 @@ def trainable_variables():
 
 \subsection{global\_step}
 
-\code{global\_step}是一个特殊的\ascii{Variable}，它不是训练变量，但它是一个全局变量。在分布式环境中，\code{global\_step}常用于追踪已运行\ascii{step}的次数，并在不同进程间实现数据的同步。
+\code{global\_step}は特別な\ascii{Variable}で、訓練変数ではありませんが、グローバル変数です。分散環境では、\code{global\_step}は通常、実行済みの\ascii{step}数を追跡し、異なるプロセス間でデータの同期を実現するために使用されます。
 
-创建一个\code{global\_step}可以使用如下函数：
+\code{global\_step}を作成するには、以下の関数を使用できます：
 
 \begin{leftbar}
 \begin{python}
@@ -342,11 +339,11 @@ def create_global_step(graph=None):
 
 \end{content}
 
-\section{源码分析：构造变量}
+\section{ソースコード分析：変数の構築}
 
 \begin{content}
 
-为了简化代码实现，此处对\ascii{Variable}做了简单的重构。
+コード実装を簡略化するため、ここでは\ascii{Variable}を簡単に再構築しています。
 
 \begin{leftbar}
 \begin{python}
@@ -362,9 +359,9 @@ class Variable(object):
 \end{python}
 \end{leftbar}
 
-构造\ascii{Variable}实例，基本包括如下几个步骤：
+\ascii{Variable}インスタンスの構築は、基本的に以下のステップを含みます：
 
-\subsection{构造初始值}
+\subsection{初期値の構築}
 
 \begin{leftbar}
 \begin{python}
@@ -374,9 +371,9 @@ class Variable(object):
 \end{python}
 \end{leftbar}
 
-\subsection{构造变量OP}
+\subsection{変数OPの構築}
 
-\ascii{Variable}根据初始值的类型和大小完成自动推演。
+\ascii{Variable}は初期値の型とサイズに基づいて自動的に推論を行います。
 
 \begin{leftbar}
 \begin{python}
@@ -388,9 +385,9 @@ class Variable(object):
 \end{python}
 \end{leftbar}
 
-\subsection{构造初始化器}
+\subsection{初期化子の構築}
 
-\ascii{Variable}的初始化器本质上是一个\ascii{Assign}，它持有\ascii{Variable}的引用，并使用初始值就地修改变量本身。
+\ascii{Variable}の初期化子は本質的に\ascii{Assign}であり、\ascii{Variable}の参照を保持し、初期値を使用して変数自体をその場で修正します。
 
 \begin{leftbar}
 \begin{python}
@@ -401,9 +398,9 @@ class Variable(object):
 \end{python}
 \end{leftbar}
 
-\subsection{构造快照}
+\subsection{スナップショットの構築}
 
-\ascii{Variable}的快照本质上是一个\ascii{Identity}，表示\ascii{Variable}的当前值。
+\ascii{Variable}のスナップショットは本質的に\ascii{Identity}であり、\ascii{Variable}の現在の値を表します。
 
 \begin{leftbar}
 \begin{python}
@@ -414,9 +411,9 @@ class Variable(object):
 \end{python}
 \end{leftbar}
 
-\subsection{变量分组}
+\subsection{変数のグループ化}
 
-默认地，\ascii{Variable}被划分在全局变量的集合中；如果\code{trainable}为真，则表示该变量为训练参数，并将其划分到训练变量的集合中。
+デフォルトで、\ascii{Variable}はグローバル変数のコレクションに分類されます。\code{trainable}が真の場合、その変数は訓練パラメータであることを示し、訓練変数のコレクションに分類されます。
 
 \begin{leftbar}
 \begin{python}

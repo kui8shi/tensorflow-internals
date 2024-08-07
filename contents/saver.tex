@@ -10,18 +10,18 @@
 
 \begin{content}
 
-在长期的训练任务过程中，为了实现任务的高可用性，\tf{}会周期性地执行断点检查(\ascii{Checkpoint})。
+深層学習モデルの学習過程では、モデルの状態を保存することが重要です。これにより、学習の中断や再開が可能になり、\tf{}では、この機能をチェックポイント(\ascii{Checkpoint})と呼びます。
 
-\code{Saver}是实现断点检查功能的基础设施，它会将所有的训练参数持久化在文件系统中；当需要恢复训练时，可以载从文件系统中恢复计算图，及其训练参数的值。也就是说，\code{Saver}承担如下两个方面的职责：
+\code{Saver}は学習モデルの状態を保存および復元するためのクラスです。これにより、学習の途中経過や最終的な結果を保存し、必要に応じて以前の状態に戻すことができます。また、学習モデルの移植や共有も可能になります。主に、\code{Saver}は以下の2つの機能を提供します：
 
 \begin{enum}
-  \eitem{\code{save}: 将训练参数的当前值持久化到断点文件中;}
-  \eitem{\code{restore}: 从断点文件中恢复训练参数的值。} 
+  \eitem{\code{save}: 学習モデルの現在の状態を指定されたチェックポイントファイルに保存します;}
+  \eitem{\code{restore}: チェックポイントファイルから学習モデルの状態を復元します} 
 \end{enum}
 
 \subsection{使用方法}
 
-例如，存在一个简单的计算图，包含两个训练参数。首先，执行初始化后，将其结果持久化到文件系统中。
+例えば、以下のようなシンプルな例を考えてみましょう。まず、グラフを構築し、それを実行してチェックポイントに保存します。
 
 \begin{leftbar}
 \begin{python}
@@ -37,7 +37,7 @@ with tf.Session() as sess:
 \end{python}
 \end{leftbar}
 
-随后，可以根据断点文件存储的位置恢复模型。
+次に、保存されたチェックポイントからモデルを復元します。
 
 \begin{leftbar}
 \begin{python}
@@ -47,9 +47,9 @@ with tf.Session() as sess:
 \end{python}
 \end{leftbar}
 
-\subsection{文件功能}
+\subsection{チェックポイントの構造}
 
-当执行\code{Saver.save}操作之后，在文件系统中生成如下文件：
+典型的な\code{Saver.save}操作後、以下のファイルが生成されます：
 
 \begin{leftbar}
 \begin{python}
@@ -60,59 +60,58 @@ with tf.Session() as sess:
 \end{python}
 \end{leftbar}
 
-\subsubsection{索引文件}
+\subsubsection{インデックスファイル}
 
-索引(\ascii{index})文件保存了一个不可变表(\code{tensorflow::table::Table})的数据；其中，关键字为\ascii{Tensor}的名称，其值描述该\ascii{Tensor}的元数据信息，包括该\ascii{Tensor}存储在哪个数据(\ascii{data})文件中，及其在该数据文件中的偏移，及其校验和等信息。
+インデックス(\ascii{index})ファイルは基本的にハッシュテーブル(\code{tensorflow::table::Table})の形式で、各\ascii{Tensor}の名前をキーとし、その\ascii{Tensor}のメタデータ情報を値として持ちます。各\ascii{Tensor}はそれぞれ1つのデータ(\ascii{data})ファイルに保存され、このデータファイルの位置も記録されており、素早くアクセスできるようになっています。
 
-\subsubsection{数据文件}
+\subsubsection{データファイル}
 
-数据(\ascii{data})文件记录了所有变量\ascii{(Variable)}的值。当\code{restore}某个变量时，首先从索引文件中找到相应变量在哪个数据文件，然后根据索引直接获取变量的值，从而实现变量数据的恢复。
+データ(\ascii{data})ファイルには実際の変数\ascii{(Variable)}の値が含まれています。\code{restore}時に変数を復元する際、まずインデックスファイルから各変数の対応するデータファイルを見つけ、そこからインデックスに基づいて変数の値を読み取り、変数の値を復元します。
 
-\subsubsection{元文件}
+\subsubsection{メタファイル}
 
-元文件(\ascii{meta})中保存了\code{MetaGraphDef}的持久化数据，它包括\code{GraphDef, SaverDef}等元数据。
+メタファイル(\ascii{meta})には\code{MetaGraphDef}のシリアル化されたデータが含まれており、\code{GraphDef, SaverDef}などのメタデータを含んでいます。
 
-将描述计算图的元数据与存储变量值的数据文件相分离，实现了静态的图结构与动态的数据表示的分离。因此，在恢复\ascii{(Restore)}时，先调用\code{tf.import\_meta\_graph}先将\code{GraphDef}恢复出来，然后再恢复\code{SaverDef}，从而恢复了描述静态图结构的\code{Graph}对象，及其用于恢复变量值的\code{Saver}对象，最后使用\code{Saver.restore}恢复所有变量的值。
+このファイルには変数の値以外のモデルのメタデータが保存されており、計算グラフの構造やその他のモデル関連の情報が含まれています。例えば、復元(\ascii{Restore})時には、まず\code{tf.import\_meta\_graph}を使って\code{GraphDef}を復元し、次に\code{SaverDef}を復元します。これにより、元の計算グラフの\code{Graph}オブジェクトが復元され、変数の値を復元するための\code{Saver}オブジェクトも作成され、最後に\code{Saver.restore}を使って各変数の値を復元します。
 
-这也是在上例中，在调用\code{Saver.restore}之前，得先调用\code{tf.import\_meta\_graph}的真正原因；否则，缺失计算图的实例，就无法谈及恢复数据到图实例中了。
+注意すべき点として、\code{Saver.restore}を呼び出す前に、必ず\code{tf.import\_meta\_graph}を呼び出す必要があります。そうしないと、変数の定義が存在せず、データを正しく復元できません。
 
-\subsubsection{状态文件}
+\subsubsection{チェックポイントファイル}
 
-\ascii{Checkpoint}文件会记录最近一次的断点文件(\ascii{Checkpoint File})的前缀，根据前缀可以找对对应的索引和数据文件。当调用\code{tf.train.latest\_checkpoint}，可以快速找到最近一次的断点文件。
+\ascii{Checkpoint}ファイルは最新のチェックポイントファイル(\ascii{Checkpoint File})のリストを含んでおり、このリストを使って最新のインデックスやデータファイルを見つけることができます。\code{tf.train.latest\_checkpoint}を使用すると、最新のチェックポイントファイルを見つけることができます。
 
-
-此外，\ascii{Checkpoint}文件也记录了所有的断点文件列表，并且文件列表按照由旧至新的时间依次排序。当训练任务时间周期非常长，断点检查将持续进行，必将导致磁盘空间被耗尽。为了避免这个问题，存在两种基本的方法：
+また、\ascii{Checkpoint}ファイルは基本的に一連のチェックポイントファイルのセットで、これらのファイルセットは学習の進行に伴って更新されます。学習プロセス中に定期的に保存することで、チェックポイントは増えていきますが、ディスク容量を節約するために古いチェックポイントを削除することもあります。これを制御するために、以下の2つのパラメータがあります：
 
 \begin{enum}
-  \eitem{\code{max\_to\_keep}: 配置最近有效文件的最大数目，当新的断点文件生成时，且文件数目超过\code{max\_to\_keep}，则删除最旧的断点文件；其中，\code{max\_to\_keep}默认值为\ascii{5};}
-  \eitem{\code{keep\_checkpoint\_every\_n\_hours}: 在训练过程中每\code{n}小时做一次断点检查，保证只有一个断点文件；其中，该选项默认是关闭的。} 
+  \eitem{\code{max\_to\_keep}: 保持する最新のチェックポイントの最大数。新しいチェックポイントが作成されると、このチェックポイント数が\code{max\_to\_keep}を超える場合、最も古いチェックポイントが削除されます。デフォルト値は\ascii{5}です;}
+  \eitem{\code{keep\_checkpoint\_every\_n\_hours}: 学習が一定時間（\code{n}時間）続いた後に1つのチェックポイントを保存し、これは永久に保持されます。デフォルトでは無効になっています。} 
 \end{enum}
 
-由于\ascii{Checkpoint}文件也记录了断点文件列表，并且文件列表按照由旧至新的时间依次排序。根据上述策略删除陈旧的断点文件将变得极其简单有效。
+このように\ascii{Checkpoint}ファイルは基本的にチェックポイントファイルのセットで、これらのファイルセットは学習の進行に伴って更新されます。この仕組みにより、最新の状態を保持しながら、必要に応じて過去の状態に戻ることができます。
 
-\subsection{模型}
+\subsection{実装}
 
-\subsubsection{持久化模型}
+\subsubsection{シリアル化の実装}
 
-为了实现持久化的功能，\code{Saver}在构造时在计算图中插入\code{SaveV2}，及其关联的\ascii{OP}。其中，\code{file\_name}为一个\ascii{Const}的\ascii{OP}，指定断点文件的名称；\code{tensor\_names}也是一个\ascii{Const}的\ascii{OP}，用于指定训练参数的\ascii{Tensor}名称列表。
+モデルのシリアル化のために、\code{Saver}は内部で、グラフ内に\code{SaveV2}という特別な\ascii{OP}を作成します。この中で、\code{file\_name}は1つの\ascii{Const}の\ascii{OP}で、チェックポイントファイルの名前を表します。\code{tensor\_names}も1つの\ascii{Const}の\ascii{OP}で、保存する学習モデルの\ascii{Tensor}名のリストを表します。
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/py-saver-save-model.png}
-\caption{Saver：持久化模型}
+\caption{Saver：シリアル化の実装}
  \label{fig:py-saver-save-model}
 \end{figure}
 
-\subsubsection{恢复模型}
+\subsubsection{復元の実装}
 
-同样地，为了实现恢复功能，\code{Saver}在构造期，为每个训练参数，插入了一个\code{RestoreV2}，及其关联的\ascii{OP}。其中，包括从断点文件中恢复参数默认值的初始化器\ascii{(Initializer)}，其本质是一个\code{Assign}的\ascii{OP}。 
+同様に、復元プロセスでは、\code{Saver}は内部で、各学習モデルに対して1つの\code{RestoreV2}という特別な\ascii{OP}を作成します。この中で、チェックポイントファイルから復元される変数のデフォルト値（Initializer）も作成され、これは1つの\code{Assign}の\ascii{OP}になります。
 
-另外，\code{file\_name}为一个\ascii{Const}的\ascii{OP}，指定断点文件的名称；\code{tensor\_names}也是一个\ascii{Const}的\ascii{OP}，用于指定训练参数的\ascii{Tensor}名称列表，其长度为\ascii{1}。
+ここでも、\code{file\_name}は1つの\ascii{Const}の\ascii{OP}で、チェックポイントファイルの名前を表します。\code{tensor\_names}も1つの\ascii{Const}の\ascii{OP}で、保存する学習モデルの\ascii{Tensor}名のリストを表し、その数は1です。
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/py-saver-restore-model.png}
-\caption{Saver：恢复模型}
+\caption{Saver：復元の実装}
  \label{fig:py-saver-restore-model}
 \end{figure}
 

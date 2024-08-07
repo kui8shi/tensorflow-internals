@@ -3,36 +3,36 @@
 \qauthor{\ascii{- Martin Flower}}
 \end{savequote}
 
-\chapter{C API：分水岭} 
+\chapter{C API：分水嶺} 
 \label{ch:c-api}
 
 \begin{content}
 
-本章通过客户端\ascii{Session}生命周期的实现为例，揭示前端\ascii{Python}与后端\cpp{}系统的实现通道，揭示\ascii{TensorFlow}多语言编程的奥秘。
+本章では、クライアントの\ascii{Session}ライフサイクルの実装を例に、フロントエンドの\ascii{Python}とバックエンドの\cpp{}システムの実装チャネルを明らかにし、\ascii{TensorFlow}のマルチ言語プログラミングの秘密を解き明かします。
 
 \end{content}
 
-\section{Swig：幕后英雄}
+\section{Swig：縁の下の力持ち}
 
 \begin{content}
 
-前端多语言编程环境与后端\cpp{}实现系统的通道归功于\ascii{Swig}的包装器。\ascii{TensorFlow}使用\ascii{Bazel}的构建工具，在系统编译之前启动\ascii{Swig}的代码生成过程，通过\code{tensorflow.i}自动生成了两个适配(\ascii{Wrapper})文件：
+フロントエンドのマルチ言語プログラミング環境とバックエンドの\cpp{}実装システムのチャネルは、\ascii{Swig}のラッパーのおかげです。\ascii{TensorFlow}は\ascii{Bazel}ビルドツールを使用し、システムのコンパイル前に\ascii{Swig}のコード生成プロセスを開始し、\code{tensorflow.i}を通じて2つの適応（\ascii{Wrapper}）ファイルを自動生成します：
 
 \begin{enum}
-  \eitem{\code{pywrap\_tensorflow\_internal.py}:  负责对接上层\ascii{Python}调用；}
-  \eitem{\code{pywrap\_tensorflow\_internal.cc}: 负责对接下层\ascii{C API}调用。}
+  \eitem{\code{pywrap\_tensorflow\_internal.py}:  上層の\ascii{Python}呼び出しを担当；}
+  \eitem{\code{pywrap\_tensorflow\_internal.cc}: 下層の\ascii{C API}呼び出しを担当。}
 \end{enum}
 
-如\refig{swig}所示，\code{pywrap\_tensorflow\_internal.py}模块首次被导入时，自动地加载\code{\_pywrap\_tensorflow\_internal.so}的动态链接库；其中，\code{\_pywrap\_tensorflow\_internal.so}包含了整个\tf{}运行时的所有符号。在\code{pywrap\_tensorflow\_internal.cc}的实现中，静态注册了一个函数符号表，实现了\ascii{Python}函数名到\ascii{C}函数名的二元关系。在运行时，按照\ascii{Python}的函数名称，匹配找到对应的\ascii{C}函数实现，最终实现\ascii{Python}到\code{c\_api.c}具体实现的调用关系。
+\refig{swig}に示すように、\code{pywrap\_tensorflow\_internal.py}モジュールが初めてインポートされると、自動的に\code{\_pywrap\_tensorflow\_internal.so}動的リンクライブラリをロードします。この\code{\_pywrap\_tensorflow\_internal.so}には、\tf{}ランタイムの全シンボルが含まれています。\code{pywrap\_tensorflow\_internal.cc}の実装では、関数シンボルテーブルが静的に登録され、\ascii{Python}関数名と\ascii{C}関数名の二項関係が実現されています。実行時には、\ascii{Python}の関数名に応じて、対応する\ascii{C}関数の実装を見つけ、最終的に\ascii{Python}から\code{c\_api.c}の具体的な実装への呼び出し関係を実現します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/swig.png}
-\caption{Swig代码生成器}
+\caption{Swigコードジェネレーター}
  \label{fig:swig}
 \end{figure}
 
-其中，\ascii{Bazel}的生成规则定义于\code{//tensorflow/python:pywrap\_tensorflow\_internal}，如下代码所示。
+ここで、\ascii{Bazel}の生成ルールは\code{//tensorflow/python:pywrap\_tensorflow\_internal}で定義されており、以下のコードのようになっています。
 
 \begin{leftbar}
 \begin{python}
@@ -69,54 +69,54 @@ tf_py_wrap_cc(
 \end{python}
 \end{leftbar}
 
-下文以客户端\ascii{Session}生命周期的实现为例，揭示前端\ascii{Python}与后端\cpp{}系统的实现通道。
+以下では、クライアントの\ascii{Session}ライフサイクルの実装を例に、フロントエンドの\ascii{Python}とバックエンドの\cpp{}システムの実装チャネルを明らかにします。
 
 \end{content}
 
-\section{会话控制}
+\section{セッション制御}
 
 \begin{content}
 
-严格意义上，\ascii{C API}并非是\ascii{Client}与\ascii{Master}的分界线。如\refig{tf-client-session}所示，\ascii{Client}存在部分\cpp{}实现，即\code{tensorflow::Session}。其中，\code{tf.Session}实例直接持有\code{tensorflow::Session}实例的句柄。在实际运行时环境中，\code{tensorflow::Session}可能存在多种实现。例如，\code{DirectSession}负责\emph{本地模式}的会话控制。而\code{GrpcSession}负责基于\ascii{gRPC}协议的\emph{分布式模式}的会话控制。一般地，用户使用的是\code{tf.Session}实施编程，而非\code{tensorflow::Session}。
+厳密には、\ascii{C API}は\ascii{Client}と\ascii{Master}の境界線ではありません。\refig{tf-client-session}に示すように、\ascii{Client}には一部\cpp{}実装、つまり\code{tensorflow::Session}が存在します。ここで、\code{tf.Session}インスタンスは\code{tensorflow::Session}インスタンスのハンドルを直接保持しています。実際の実行時環境では、\code{tensorflow::Session}には複数の実装が存在する可能性があります。例えば、\code{DirectSession}は\emph{ローカルモード}のセッション制御を担当します。一方、\code{GrpcSession}は\ascii{gRPC}プロトコルに基づく\emph{分散モード}のセッション制御を担当します。一般に、ユーザーは\code{tensorflow::Session}ではなく、\code{tf.Session}を使用してプログラミングを行います。
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/tf-client-session.png}
-\caption{客户端：tensorflow::Session实例创建过程}
+\caption{クライアント：tensorflow::Sessionインスタンス作成プロセス}
  \label{fig:tf-client-session}
 \end{figure}
 
 \end{content}
 
-\section{会话生命周期}
+\section{セッションライフサイクル}
 
 \begin{content}
 
-会话的生命周期包括会话的创建，创建计算图，扩展计算图，执行计算图，关闭会话，销毁会话的基本过程。在前端\ascii{Python}和后端\cpp{}表现为两套相兼容的接口实现。
+セッションのライフサイクルには、セッションの作成、計算グラフの作成、計算グラフの拡張、計算グラフの実行、セッションの終了、セッションの破棄という基本的なプロセスが含まれます。フロントエンドの\ascii{Python}とバックエンドの\cpp{}では、2つの互換性のあるインターフェース実装として現れます。
 
-\subsection{Python前端}
+\subsection{Pythonフロントエンド}
 
-如\refig{py-session-lifecycle}所示，在\ascii{Python}前端，\code{Session}的生命周期主要体现在：
+\refig{py-session-lifecycle}に示すように、\ascii{Python}フロントエンドでは、\code{Session}のライフサイクルは主に以下の点に現れます：
 
 \begin{enum}
-  \eitem{创建\code{Session(target)}；}
-  \eitem{迭代执行\code{Session.run(fetches, feed\_dict)}；}
+  \eitem{\code{Session(target)}の作成；}
+  \eitem{\code{Session.run(fetches, feed\_dict)}の反復実行；}
     \begin{enum}
       \eitem{\code{Session.\_extend\_graph(graph)}；}
       \eitem{\code{Session.TF\_Run(feeds, fetches, targets)}；}
     \end{enum}
-  \eitem{关闭\code{Session}；}
-  \eitem{销毁\code{Session}；}
+  \eitem{\code{Session}の終了；}
+  \eitem{\code{Session}の破棄；}
 \end{enum}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.5\textwidth]{figures/py-session-lifecycle.png}
-\caption{Python: Session生命周期}
+\caption{Python: Sessionライフサイクル}
  \label{fig:py-session-lifecycle}
 \end{figure}
 
-例如，此处创建了本地模式的\code{Session}实例，并启动\code{mnist}的训练过程。
+例えば、ここではローカルモードの\code{Session}インスタンスを作成し、\code{mnist}のトレーニングプロセスを開始します。
 
 \begin{leftbar}
 \begin{python}
@@ -128,27 +128,27 @@ sess.close()
 \end{python}
 \end{leftbar}
 
-\subsection{C++后端}
+\subsection{C++バックエンド}
 
-相应地，在\cpp{}后端，\code{Session}的生命周期主要体现在：
+同様に、\cpp{}バックエンドでは、\code{Session}のライフサイクルは主に以下の点に現れます：
 
 \begin{enum}
-  \eitem{根据\code{target}多态创建\code{Session}；}
-  \eitem{\code{Session.Create(graph)}：有且仅有一次；}
-  \eitem{\code{Session.Extend(graph)}：零次或多次；}
-  \eitem{迭代执行\code{Session.Run(inputs, outputs, targets)}；}
-  \eitem{关闭\code{Session.Close}；}
-  \eitem{销毁\code{Session}对象。}
+  \eitem{\code{target}に基づく多態的な\code{Session}の作成；}
+  \eitem{\code{Session.Create(graph)}：一度だけ；}
+  \eitem{\code{Session.Extend(graph)}：ゼロ回または複数回；}
+  \eitem{\code{Session.Run(inputs, outputs, targets)}の反復実行；}
+  \eitem{\code{Session.Close}によるセッションの終了；}
+  \eitem{\code{Session}オブジェクトの破棄。}
 \end{enum}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/cc-session-lifecycle.png}
-\caption{C++: Session生命周期}
+\caption{C++: Sessionライフサイクル}
  \label{fig:cc-session-lifecycle}
 \end{figure}
 
-例如，此处创建了本地模式的\code{DirectSession}实例，并启动计算图的执行过程。
+例えば、ここではローカルモードの\code{DirectSession}インスタンスを作成し、計算グラフの実行プロセスを開始します。
 
 \begin{leftbar}
 \begin{c++}
@@ -182,22 +182,22 @@ session->Close();
 
 \end{content}
 
-\section{创建会话}
+\section{セッションの作成}
 
 \begin{content}
 
-下面介绍Session创建的详细过程，从\ascii{Python}前端为起点，通过\ascii{Swig}自动生成的\ascii{Python-C++}的包装器，并以此为媒介，实现了\ascii{Python}到\ascii{TensorFlow}的\ascii{C API}的调用。其中，\ascii{C API}是前端系统与后端系统的分水岭。
+以下では、Sessionの作成の詳細なプロセスを説明します。\ascii{Python}フロントエンドを起点とし、\ascii{Swig}によって自動生成された\ascii{Python-C++}ラッパーを通じて、\ascii{Python}から\ascii{TensorFlow}の\ascii{C API}への呼び出しを実現します。ここで、\ascii{C API}はフロントエンドシステムとバックエンドシステムの分水嶺です。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/py-create-session.png}
-\caption{创建会话}
+\caption{セッションの作成}
  \label{fig:py-create-session}
 \end{figure}
 
-\subsection{编程接口}
+\subsection{プログラミングインターフェース}
 
-当\ascii{Client}要启动计算图的执行过程时，先创建了一个\code{Session}实例，进而调用父类\code{BaseSession}的构造函数。
+\ascii{Client}が計算グラフの実行プロセスを開始する際、まず\code{Session}インスタンスを作成し、その後親クラス\code{BaseSession}のコンストラクタを呼び出します。
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/python/client/session.py}]
@@ -209,7 +209,7 @@ class Session(BaseSession):
 \end{python}
 \end{leftbar}
 
-在\code{BaseSession}的构造函数中，将调用\code{pywrap\_tensorflow}模块中的函数。其中，\code{TF\_NewDeprecatedSession}是遗留下来的，已被废弃的接口实现。在新的\ascii{API}中，直接将图实例传递给后端\ascii{C++}，避免了前后端图实例序列化的开销。
+\code{BaseSession}のコンストラクタ内で、\code{pywrap\_tensorflow}モジュール内の関数を呼び出します。ここで、\code{TF\_NewDeprecatedSession}は古い実装で、既に非推奨となっています。新しい\ascii{API}では、グラフインスタンスを直接バックエンドの\ascii{C++}に渡すことで、フロントエンドとバックエンドのグラフインスタンスのシリアライズのオーバーヘッドを避けています。
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/python/client/session.py}]
@@ -217,13 +217,13 @@ from tensorflow.python import pywrap_tensorflow as tf_session
 
 class BaseSession(SessionInterface):
   def __init__(self, target='', graph=None, config=None):
-    # default graph
+    # デフォルトグラフ
     if graph is None:
       self._graph = ops.get_default_graph()
     else:
       self._graph = graph
 
-    # handle to tensorflow::Session
+    # tensorflow::Sessionへのハンドル
     self._session = None
     opts = tf_session.TF_NewSessionOptions(target=self._target, 
                                            config=config)
@@ -239,7 +239,7 @@ class BaseSession(SessionInterface):
 \end{python}
 \end{leftbar}
 
-如\refig{tf-graph-inst}所示，\code{ScopedTFGraph}是对\code{TF\_Graph}的包装器，完成类似于\ascii{C++}的\ascii{RAII}的工作机制。而\code{TF\_Graph}持有\code{ternsorflow::Graph}实例。其中，\code{self.\_graph.\_c\_graph}返回一个\code{TF\_Graph}实例，后者通过\ascii{C API}创建的图实例。
+\refig{tf-graph-inst}に示すように、\code{ScopedTFGraph}は\code{TF\_Graph}のラッパーで、\ascii{C++}の\ascii{RAII}に似た作業メカニズムを完了します。一方、\code{TF\_Graph}は\code{tensorflow::Graph}インスタンスを保持しています。ここで、\code{self.\_graph.\_c\_graph}は\code{TF\_Graph}インスタンスを返し、後者は\ascii{C API}によって作成されたグラフインスタンスです。
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/python/framework/ops.py}]
@@ -272,13 +272,13 @@ class ScopedTFGraph(object):
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.3\textwidth]{figures/tf-graph-inst.png}
-\caption{前后端：图实例传递}
+\caption{フロントエンドとバックエンド：グラフインスタンスの受け渡し}
  \label{fig:tf-graph-inst}
 \end{figure}
 
-\subsubsection{Python包装器}
+\subsubsection{Pythonラッパー}
 
-在\code{pywrap\_tensorflow}模块中，通过\code{\_pywrap\_tensorflow\_internal}的转发，实现了从\ascii{Python}到动态连接库\code{\_pywrap\_tensorflow\_internal.so}的函数调用。
+\code{pywrap\_tensorflow}モジュールでは、\code{\_pywrap\_tensorflow\_internal}を通じて転送することで、\ascii{Python}から動的リンクライブラリ\code{\_pywrap\_tensorflow\_internal.so}への関数呼び出しを実現しています。
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/bazel-bin/tensorflow/python/pywrap\_tensorflow\_internal.py}]
@@ -290,9 +290,9 @@ def TF_NewSession(graph, opts, status):
 \end{python}
 \end{leftbar}
 
-\subsubsection{C++包装器}
+\subsubsection{C++ラッパー}
 
-在\code{pywrap\_tensorflow\_internal.cc}的具体实现中，静态注册了函数调用的符号表，实现\ascii{Python}的函数名称到\cpp{}函数实现的具体映射。
+\code{pywrap\_tensorflow\_internal.cc}の具体的な実装では、関数呼び出しのシンボルテーブルを静的に登録し、\ascii{Python}の関数名から\cpp{}関数の実装への具体的なマッピングを実現しています。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/bazel-bin/tensorflow/python/pywrap\_tensorflow\_internal.cc}]
@@ -307,11 +307,11 @@ static PyMethodDef SwigMethods[] = {
 \end{c++}
 \end{leftbar}
 
-最终，\code{\_wrap\_TF\_NewSession/\_wrap\_TF\_NewDeprecatedSession}将分别调用\code{c\_api.h}对其开放的\ascii{API}接口：\code{TF\_NewSession/TF\_NewDeprecatedSession}。也就是说，自动生成的\code{pywrap\_tensorflow\_internal.cc}仅仅负责\ascii{Python}函数到\ascii{C/C++}函数调用的转发，最终将调用底层\ascii{C}系统向上提供的\ascii{API}接口。
+最終的に、\code{\_wrap\_TF\_NewSession/\_wrap\_TF\_NewDeprecatedSession}は、それぞれ\code{c\_api.h}が公開している\ascii{API}インターフェース：\code{TF\_NewSession/TF\_NewDeprecatedSession}を呼び出します。つまり、自動生成された\code{pywrap\_tensorflow\_internal.cc}は、単に\ascii{Python}関数から\ascii{C/C++}関数呼び出しへの転送を担当し、最終的には下層の\ascii{C}システムが上層に提供する\ascii{API}インターフェースを呼び出します。
 
 \subsection{C API}
 
-\code{c\_api.h}是\ascii{TensorFlow}的后端执行系统面向前端开放的公共\ascii{API}接口。其中，新的接口实现采用了引用计数的技术，实现图实例在多个\code{Session}实例中共享。
+\code{c\_api.h}は、\ascii{TensorFlow}のバックエンド実行システムがフロントエンドに公開している公共\ascii{API}インターフェースです。ここで、新しいインターフェース実装では参照カウント技術を採用し、グラフインスタンスを複数の\code{Session}インスタンス間で共有することを実現しています。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/c/c\_api.c}]
@@ -344,9 +344,9 @@ TF_DeprecatedSession* TF_NewDeprecatedSession(const TF_SessionOptions* opt,
 \end{c++}
 \end{leftbar}
 
-\subsection{后端系统}
+\subsection{バックエンドシステム}
 
-\code{NewSession}将根据前端传递的\code{target}，使用\code{SessionFactory}多态创建不同类型的\code{tensorflow::Session}实例。
+\code{NewSession}は、フロントエンドから渡された\code{target}に基づいて、\code{SessionFactory}を使用して多態的に異なるタイプの\code{tensorflow::Session}インスタンスを作成します。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/c/c\_api.c}]
@@ -366,39 +366,39 @@ Status NewSession(const SessionOptions& options, Session** out_session) {
 \end{c++}
 \end{leftbar}
 
-\subsubsection{工厂方法}
+\subsubsection{ファクトリーメソッド}
 
-在后端\cpp{}实现中，\code{tensorflow::Session}的创建使用了抽象工厂方法。如果\code{SessionOptions}中的\code{target}为空字符串(默认的)，则创建\code{DirectSession}实例，启动本地运行模式；如果\code{SessionOptions}中的\code{target}以\code{grpc://}开头，则创建\code{GrpcSession}实例，启动基于\code{RPC}的分布式运行模式。如\refig{cc-session-factory}所示。
+バックエンドの\cpp{}実装では、\code{tensorflow::Session}の作成に抽象ファクトリーメソッドを使用しています。\code{SessionOptions}の\code{target}が空文字列（デフォルト）の場合、\code{DirectSession}インスタンスを作成してローカル実行モードを開始します。\code{SessionOptions}の\code{target}が\code{grpc://}で始まる場合、\code{GrpcSession}インスタンスを作成して\code{RPC}ベースの分散実行モードを開始します。\refig{cc-session-factory}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/cc-session-factory.png}
-\caption{tensorflow::Session创建：抽象工厂方法}
+\caption{tensorflow::Sessionの作成：抽象ファクトリーメソッド}
  \label{fig:cc-session-factory}
 \end{figure}
 
 \end{content}
 
-\section{创建/扩展图}
+\section{グラフの作成/拡張}
 
 \begin{content}
 
-在既有的接口实现中，需要将图构造期构造好的图序列化，并传递给后端\ascii{C++}系统。而在新的接口实现中，无需实现图的创建或扩展。因为在创建\ascii{OP}时，节点实时添加至后端\ascii{C++}系统的图实例中。但是，既有接口实现，对于理解系统行为较为重要，在此做简单地阐述。
+既存のインターフェース実装では、グラフ構築期に構築されたグラフをシリアライズし、バックエンドの\ascii{C++}システムに渡す必要がありました。新しいインターフェース実装では、グラフの作成や拡張を実装する必要はありません。なぜなら、\ascii{OP}の作成時に、ノードがリアルタイムでバックエンドの\ascii{C++}システムのグラフインスタンスに追加されるからです。しかし、既存のインターフェース実装は、システムの動作を理解する上で重要なので、ここで簡単に説明します。
 
-\ascii{Python}前端将迭代调用\code{Session.run}接口，将构造好的计算图，以\code{GraphDef}的形式发送给\cpp{}后端。其中，前端每次调用\code{Session.run}接口时，都会试图将新增节点的计算图发送给后端系统，以便将新增节点的计算图\ascii{Extend}到原来的计算图中。特殊地，在首次调用\code{Session.run}时，将发送整个计算图给后端系统。
+\ascii{Python}フロントエンドは\code{Session.run}インターフェースを反復的に呼び出し、構築された計算グラフを\code{GraphDef}の形式でC++バックエンドに送信します。フロントエンドが\code{Session.run}インターフェースを呼び出すたびに、新しく追加されたノードの計算グラフをバックエンドシステムに送信しようとし、新しく追加されたノードの計算グラフを元の計算グラフに\ascii{Extend}できるようにします。特に、\code{Session.run}を初めて呼び出すときは、計算グラフ全体をバックエンドシステムに送信します。
 
-后端系统首次调用\code{Session.Extend}时，转调(或等价实现)\code{Session.Create}。以后，后端系统每次调用\code{Session.Extend}时将真正执行\code{Extend}的语义，将新增的计算图的节点追加至原来的计算图中。
+バックエンドシステムが初めて\code{Session.Extend}を呼び出すとき、\code{Session.Create}に転送（または同等の実装）します。その後、バックエンドシステムが\code{Session.Extend}を呼び出すたびに、実際に\code{Extend}のセマンティクスを実行し、新しく追加された計算グラフのノードを元の計算グラフに追加します。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/py-session-create-graph.png}
-\caption{创建图}
+\caption{グラフの作成}
  \label{fig:py-session-create-graph}
 \end{figure}
 
-\subsection{编程接口}
+\subsection{プログラミングインターフェース}
 
-在既有的接口实现中，通过\code{\_extend\_graph}实现图实例的扩展。
+既存のインターフェース実装では、\code{\_extend\_graph}を通じてグラフインスタンスの拡張を実現しています。
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/python/client/session.py}]
@@ -407,11 +407,10 @@ class Session(BaseSession):
     # ignores implements...
     self._extend_graph()
     # ignores implements...
-
 \end{python}
 \end{leftbar}
 
-在首次调用\code{self.\_extend\_graph}时，或者有新的节点被添加至计算图中时，对计算图\code{GraphDef}实施序列化操作，最终触发\code{tf\_session.TF\_ExtendGraph}的调用。
+\code{self.\_extend\_graph}を初めて呼び出すとき、または新しいノードが計算グラフに追加されたときに、計算グラフ\code{GraphDef}にシリアライズ操作を実行し、最終的に\code{tf\_session.TF\_ExtendGraph}の呼び出しをトリガーします。
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/python/client/session.py}]
@@ -433,7 +432,7 @@ class Session(BaseSession):
 \end{python}
 \end{leftbar}
 
-\subsubsection{Python包装器}
+\subsubsection{Pythonラッパー}
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/bazel-bin/tensorflow/python/pywrap\_tensorflow\_internal.py}]
@@ -442,7 +441,7 @@ def TF_ExtendGraph(sess, graph_def, status):
 \end{python}
 \end{leftbar}
 
-\subsubsection{C++包装器}
+\subsubsection{C++ラッパー}
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/bazel-bin/tensorflow/python/pywrap\_tensorflow\_internal.cc}]
@@ -456,7 +455,7 @@ static PyMethodDef SwigMethods[] = {
 
 \subsection{C API}
 
-\code{TF\_ExtendGraph}是\ascii{C API}对接上层编程环境的接口。首先，它完成计算图\code{GraphDef}的反序列化，最终调用\code{tensorflow::Session}的\code{Extend}接口。
+\code{TF\_ExtendGraph}は、\ascii{C API}が上層のプログラミング環境と接続するインターフェースです。まず、計算グラフ\code{GraphDef}のデシリアライズを完了し、最終的に\code{tensorflow::Session}の\code{Extend}インターフェースを呼び出します。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/c/c\_api.c}]
@@ -472,9 +471,9 @@ void TF_ExtendGraph(TF_DeprecatedSession* sess,
 \end{c++}
 \end{leftbar}
 
-\subsection{后端系统}
+\subsection{バックエンドシステム}
 
-\code{tensorflow::Session}在运行时根据\code{Session}的动态类型，将多态地调用相应子类的实现。
+\code{tensorflow::Session}は実行時に\code{Session}の動的タイプに基づいて、対応するサブクラスの実装を多態的に呼び出します。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/core/common\_runtime/session.h}]
@@ -486,11 +485,11 @@ public:
 \end{c++}
 \end{leftbar}
 
-其中，\code{Create}表示在当前的\code{tensorflow::Session}实例上注册计算图，如果要注册新的计算图，需要关闭该\code{tensorflow::Session}对象。\code{Extend}表示在\code{tensorflow::Session}实例上已注册的计算图上追加节点。\code{Extend}首次执行时，等价于\code{Create}的语义，因为首次\code{Extend}时，已注册的计算图为空。事实上，系统就是按照如上方案实现的，此处以\code{GrpcSession}实现为例。
+ここで、\code{Create}は現在の\code{tensorflow::Session}インスタンス上に計算グラフを登録することを表し、新しい計算グラフを登録する場合は、その\code{tensorflow::Session}オブジェクトを閉じる必要があります。\code{Extend}は\code{tensorflow::Session}インスタンス上に既に登録されている計算グラフにノードを追加することを表します。\code{Extend}が初めて実行されるとき、\code{Create}のセマンティクスと同等です。なぜなら、初回の\code{Extend}時には、登録済みの計算グラフが空だからです。実際、システムはこの方式で実装されています。ここでは\code{GrpcSession}の実装を例として挙げます。
 
-\subsubsection{首次扩展图: GrpcSession}
+\subsubsection{グラフの初回拡張: GrpcSession}
 
-如果判断引用\code{Master}的\code{handle}不为空，则执行\code{Extend}；否则，执行\code{Create}的语义，建立与\code{Master}的连接，并持有\code{MasterSession}的\code{handle}。
+\code{Master}を参照する\code{handle}が空でないと判断された場合、\code{Extend}を実行します。そうでない場合、\code{Create}のセマンティクスを実行し、\code{Master}との接続を確立し、\code{MasterSession}の\code{handle}を保持します。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/core/distributed\_runtime/rpc/grpc\_session.cc}]
@@ -514,22 +513,22 @@ Status GrpcSession::ExtendImpl
 
 \end{content}
 
-\section{迭代运行}
+\section{反復実行}
 
 \begin{content}
 
-如\refig{py-session-run}所示，\ascii{Python}前端\code{Session.run}实现将\code{fetches, feed\_dict}传递给后端系统，后端系统调用\code{Session.Run}接口。后端系统的一次\code{Session.Run}执行常常被称为一次\ascii{Step}。其中，\ascii{Step}的执行过程是\ascii{TensorFlow}运行时的关键路径。
+\refig{py-session-run}に示すように、\ascii{Python}フロントエンドの\code{Session.run}実装は\code{fetches, feed\_dict}をバックエンドシステムに渡し、バックエンドシステムは\code{Session.Run}インターフェースを呼び出します。バックエンドシステムの1回の\code{Session.Run}実行は、しばしば1回の\ascii{Step}と呼ばれます。この\ascii{Step}の実行プロセスは、\ascii{TensorFlow}ランタイムの重要なパスです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=1.0\textwidth]{figures/py-session-run.png}
-\caption{迭代执行}
+\caption{反復実行}
  \label{fig:py-session-run}
 \end{figure}
 
-\subsection{编程接口}
+\subsection{プログラミングインターフェース}
 
-当\ascii{Client}调用\code{Session.run}时，最终会调用\code{pywrap\_tensorflow\_internal}模块中的函数。
+\ascii{Client}が\code{Session.run}を呼び出すと、最終的に\code{pywrap\_tensorflow\_internal}モジュール内の関数が呼び出されます。
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/python/client/session.py}]
@@ -537,7 +536,7 @@ from tensorflow.python import pywrap_tensorflow as tf_session
 
 class Session(BaseSession):
   def run(self, fetch_list, feed_dict=None, options=None, run_metadata=None):
-    # ignores other implements...
+    # ignore implements...
     self._extend_graph()
     with errors.raise_exception_on_not_ok_status() as status:
       if self._created_with_new_api:
@@ -552,7 +551,7 @@ class Session(BaseSession):
 \end{leftbar}
 
 
-\subsubsection{Python包装器}
+\subsubsection{Pythonラッパー}
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/bazel-bin/tensorflow/python/pywrap\_tensorflow\_internal.py}]
@@ -568,7 +567,7 @@ def TF_Run(sess, options, feeds, outputs,
 \end{python}
 \end{leftbar}
 
-\subsubsection{C++包装器}
+\subsubsection{C++ラッパー}
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/bazel-bin/tensorflow/python/pywrap\_tensorflow\_internal.cc}]
@@ -583,11 +582,11 @@ static PyMethodDef SwigMethods[] = {
 \end{c++}
 \end{leftbar}
 
-最终，\code{\_wrap\_TF\_Run/\_wrap\_TF\_SessionRun\_wrapper}将分别转调\ascii{C API}对应的\code{TF\_Run/TF\_SessionRun}接口函数。
+最終的に、\code{\_wrap\_TF\_Run/\_wrap\_TF\_SessionRun\_wrapper}はそれぞれ\ascii{C API}の対応する\code{TF\_Run/TF\_SessionRun}インターフェース関数を呼び出します。
 
 \subsection{C API}
 
-在既有的接口中，\code{TF\_Run}是\ascii{C API}对接上层编程环境的接口。首先，它完成输入数据从\ascii{C}到\cpp{}的格式转换，并启动后台的\code{tensorflow::Session}的执行过程。当执行完成后，再将\code{outputs}的输出数据从\cpp{}到\ascii{C}的格式转换。\code{TF\_SessionRun}与\code{TF\_Run}工作机制差不多，在此不再冗述。
+既存のインターフェースでは、\code{TF\_Run}は\ascii{C API}が上位のプログラミング環境と接続するインターフェースです。まず、入力データを\ascii{C}から\cpp{}の形式に変換し、バックグラウンドの\code{tensorflow::Session}の実行プロセスを開始します。実行が完了すると、\code{outputs}の出力データを\cpp{}から\ascii{C}の形式に再変換します。\code{TF\_SessionRun}は\code{TF\_Run}とほぼ同じ動作メカニズムを持つため、ここでは詳細な説明は省略します。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/c/c\_api.c}]
@@ -623,9 +622,9 @@ void TF_SessionRun(TF_Session* session,
 \end{c++}
 \end{leftbar}
 
-\subsection{后端系统}
+\subsection{バックエンドシステム}
 
-\code{tensorflow::Session}在运行时按照其动态类型，将多态地调用相应的子类实现。
+\code{tensorflow::Session}は実行時にその動的タイプに応じて、対応するサブクラスの実装を多態的に呼び出します。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/core/common\_runtime/session.h}]
@@ -644,42 +643,42 @@ public:
 \end{c++}
 \end{leftbar}
 
-输入包括：
+入力には以下が含まれます：
 
 \begin{enum}
-  \eitem{\code{options}：\code{Session}的运行配置参数；}
-  \eitem{\code{inputs}: 输入\code{Tensor}的名字列表；}
-  \eitem{\code{output\_names}: 输出\code{Tensor}的名字列表；}
-  \eitem{\code{targets}: 无输出，待执行的\ascii{OP}的名字列表。} 
+  \eitem{\code{options}：\code{Session}の実行設定パラメータ；}
+  \eitem{\code{inputs}: 入力\code{Tensor}の名前リスト；}
+  \eitem{\code{output\_names}: 出力\code{Tensor}の名前リスト；}
+  \eitem{\code{targets}: 出力のない、実行すべき\ascii{OP}の名前リスト。} 
 \end{enum}
 
-输出包括：
+出力には以下が含まれます：
 
 \begin{enum}
-  \eitem{\code{outputs}: 输出的\code{Tensor}列表；}
-  \eitem{\code{run\_metadata}: 运行时元数据的收集器。}
+  \eitem{\code{outputs}: 出力\code{Tensor}のリスト；}
+  \eitem{\code{run\_metadata}: 実行時メタデータのコレクター。}
 \end{enum}
 
-其中，输出的\code{outputs}列表与输入的\code{output\_names}一一对应，如果运行时因并发执行，导致\code{outputs}乱序执行，最终返回时需要对照输入的\code{output\_names}名字列表，对\code{outputs}进行排序。
+ここで、出力の\code{outputs}リストは入力の\code{output\_names}と一対一で対応しています。実行時に並行実行によって\code{outputs}が乱順に実行された場合、最終的な返却時には入力の\code{output\_names}名前リストと照合して\code{outputs}をソートする必要があります。
 
 \end{content}
 
-\section{关闭会话}
+\section{セッションの終了}
 
 \begin{content}
 
-当计算图执行完毕后，需要关闭\code{tf.Session}，以便释放后端的系统资源，包括队列，\ascii{IO}等。会话关闭流程较为简单，如\refig{py-session-close}所示。。
+計算グラフの実行が完了したら、\code{tf.Session}を終了して、バックエンドのシステムリソース（キュー、\ascii{IO}など）を解放する必要があります。セッション終了のフローは比較的シンプルで、\refig{py-session-close}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/py-session-close.png}
-\caption{关闭会话}
+\caption{セッションの終了}
  \label{fig:py-session-close}
 \end{figure}
 
-\subsection{编程接口}
+\subsection{プログラミングインターフェース}
 
-当\ascii{Client}调用\code{Session.close}时，最终会调用\code{pywrap\_tensorflow}模块中的函数: \code{TF\_CloseDeprecatedSession}。
+\ascii{Client}が\code{Session.close}を呼び出すと、最終的に\code{pywrap\_tensorflow}モジュール内の関数：\code{TF\_CloseDeprecatedSession}が呼び出されます。
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/python/client/session.py}]
@@ -701,7 +700,7 @@ class Session(BaseSession):
 \end{python}
 \end{leftbar}
 
-\subsubsection{Python包装器}
+\subsubsection{Pythonラッパー}
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/bazel-bin/tensorflow/python/pywrap\_tensorflow\_internal.py}]
@@ -713,9 +712,9 @@ def TF_CloseDeprecatedSession(sess, status):
 \end{python}
 \end{leftbar}
 
-\subsubsection{C++包装器}
+\subsubsection{C++ラッパー}
 
-\code{\_wrap\_TF\_CloseSession/\_wrap\_TF\_CloseDeprecatedSession}将分别转调\ascii{C API}对应的\code{TF\_CloseSession/TF\_CloseDeprecatedSession}接口函数。
+\code{\_wrap\_TF\_CloseSession/\_wrap\_TF\_CloseDeprecatedSession}は、それぞれ\ascii{C API}の対応する\code{TF\_CloseSession/TF\_CloseDeprecatedSession}インターフェース関数を呼び出します。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/bazel-bin/tensorflow/python/pywrap\_tensorflow\_internal.cc}]
@@ -732,7 +731,7 @@ static PyMethodDef SwigMethods[] = {
 
 \subsection{C API}
 
-\code{TF\_CloseSession/TF\_CloseDeprecatedSession}直接完成\code{tensorflow::Session}的关闭操作。
+\code{TF\_CloseSession/TF\_CloseDeprecatedSession}は直接\code{tensorflow::Session}の終了操作を完了します。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/c/c\_api.c}]
@@ -746,9 +745,9 @@ void TF_CloseDeprecatedSession(TF_DeprecatedSession* s, TF_Status* status) {
 \end{c++}
 \end{leftbar}
 
-\subsection{后端系统}
+\subsection{バックエンドシステム}
 
-\code{Session(C++)}在运行时其动态类型，将多态地调用相应的子类实现。
+\code{Session(C++)}は実行時にその動的タイプに応じて、対応するサブクラスの実装を多態的に呼び出します。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/core/common\_runtime/session.h}]
@@ -761,25 +760,26 @@ public:
 
 \end{content}
 
-\section{销毁会话}
+\section{セッションの破棄}
 
 \begin{content}
 
-当\code{tf.Session}不在被使用，由\ascii{Python}的\ascii{GC}释放。\code{Session.\_\_del\_\_}被调用后，将启动后台\code{tensorflow::Session}对象的析构过程。如\refig{py-delete-session}所示。
+\code{tf.Session}が使用されなくなると、\ascii{Python}の\ascii{GC}によって解放されます。\code{Session.\_\_del\_\_}が呼び出された後、バックグラウンドの\code{tensorflow::Session}オブジェクトの破棄プロセスが開始されます。\refig{py-delete-session}に示すとおりです。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/py-delete-session.png}
-\caption{销毁会话}
+\caption{セッションの破棄}
  \label{fig:py-delete-session}
 \end{figure}
 
-\subsection{编程接口}
+\subsection{プログラミングインターフェース}
 
-当\ascii{Client}调用\code{Session.\_\_del\_\_}时，先启动\code{Session.close}的调用，最终会调用\code{pywrap\_tensorflow}模块中的函数\code{TF\_DeleteSession/TF\_DeleteDeprecatedSession}。
+\ascii{Client}が\code{Session.\_\_del\_\_}を呼び出すと、まず\code{Session.close}の呼び出しが開始され、最終的に\code{pywrap\_tensorflow}モジュール内の関数\code{TF\_DeleteSession/TF\_DeleteDeprecatedSession}が呼び出されます。
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/python/client/session.py}]
+
 from tensorflow.python import pywrap_tensorflow as tf_session
 
 class Session(BaseSession):
@@ -803,7 +803,7 @@ class Session(BaseSession):
 \end{python}
 \end{leftbar}
 
-\subsubsection{Python包装器}
+\subsubsection{Pythonラッパー}
 
 \begin{leftbar}
 \begin{python}[caption={tensorflow/bazel-bin/tensorflow/python/pywrap\_tensorflow\_internal.py}]
@@ -815,9 +815,9 @@ def TF_DeleteDeprecatedSession(sess, status):
 \end{python}
 \end{leftbar}
 
-\subsubsection{C++包装器}
+\subsubsection{C++ラッパー}
 
-\code{\_wrap\_TF\_DeleteSession/\_wrap\_TF\_DeleteDeprecatedSession}将分别转调\ascii{C API}对应的\code{TF\_DeleteSession/TF\_DeleteDeprecatedSession}接口函数。
+\code{\_wrap\_TF\_DeleteSession/\_wrap\_TF\_DeleteDeprecatedSession}は、それぞれ\ascii{C API}の対応する\code{TF\_DeleteSession/TF\_DeleteDeprecatedSession}インターフェース関数を呼び出します。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/bazel-bin/tensorflow/python/pywrap\_tensorflow\_internal.cc}]
@@ -834,7 +834,7 @@ static PyMethodDef SwigMethods[] = {
 
 \subsection{C API}
 
-\code{TF\_DeleteDeprecatedSession}直接完成\code{tensorflow::Session}对象的释放。而新的接口\code{TF\_DeleteSession}实现中，当需要删除\code{tensorflow::Session}实例时，相应的图实例的计数器减\ascii{1}。当计数器为\ascii{0}时，则删除该图实例；否则，不删除该图实例。
+\code{TF\_DeleteDeprecatedSession}は直接\code{tensorflow::Session}オブジェクトの解放を完了します。一方、新しいインターフェース\code{TF\_DeleteSession}の実装では、\code{tensorflow::Session}インスタンスを削除する必要がある場合、対応するグラフインスタンスのカウンターを1減らします。カウンターが0になった場合、そのグラフインスタンスを削除します。そうでない場合は、そのグラフインスタンスを削除しません。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/c/c\_api.c}]
@@ -860,9 +860,9 @@ void TF_DeleteDeprecatedSession(TF_DeprecatedSession* s, TF_Status* status) {
 \end{c++}
 \end{leftbar}
 
-\subsection{后端系统}
+\subsection{バックエンドシステム}
 
-\code{tensorflow::Session}在运行时其动态类型，多态地调用相应子类实现的析构函数。
+\code{tensorflow::Session}は実行時にその動的タイプに応じて、対応するサブクラスの実装のデストラクタを多態的に呼び出します。
 
 \begin{leftbar}
 \begin{c++}[caption={tensorflow/core/common\_runtime/session.h}]
@@ -875,42 +875,42 @@ public:
 
 \end{content}
 
-\section{性能调优}
+\section{パフォーマンスチューニング}
 
 \begin{content}
 
-相比遗留的接口实现，新的接口实现存在若干优化技术提升系统的性能。虽然，截止本书撰写时，新的接口并未完全对外发布，但可以预期未来将删除既有已废弃的接口，替换为了新的接口实现。
+従来のインターフェース実装と比較して、新しいインターフェース実装にはシステムのパフォーマンスを向上させるいくつかの最適化技術が存在します。本書執筆時点では、新しいインターフェースはまだ完全に公開されていませんが、将来的には既存の非推奨インターフェースが削除され、新しいインターフェース実装に置き換えられることが予想されます。
 
-\subsection{共享图实例}
+\subsection{グラフインスタンスの共有}
 
-如\refig{tf-graph-session-relation}所示，一个\code{Session}只能运行一个图实例。如果一个\code{Session}要运行其他的图实例，必须先关掉\code{Session}，然后再将新的图实例注册到此\code{Session}中，最后启动新的计算图的执行过程。
+\refig{tf-graph-session-relation}に示すように、1つの\code{Session}は1つのグラフインスタンスのみを実行できます。\code{Session}が他のグラフインスタンスを実行する必要がある場合、まず\code{Session}を閉じ、その後新しいグラフインスタンスをこの\code{Session}に登録し、最後に新しい計算グラフの実行プロセスを開始する必要があります。
 
-但反过来，一个计算图可以运行在多个\code{Session}实例上。如果在\code{Graph}实例上维持\code{Session}的引用计数器，在\code{Session}创建时，在该图实例上增加\ascii{1}；在\code{Session}销毁时(不是关闭\code{Session})，在该图实例上减少\ascii{1}；当计数器为\ascii{0}时，则自动删除图实例。在新的接口实现中，实现了该引用计数器的技术。
+しかし逆に、1つの計算グラフは複数の\code{Session}インスタンス上で実行できます。\code{Graph}インスタンス上で\code{Session}の参照カウンタを維持し、\code{Session}作成時にそのグラフインスタンス上のカウンタを1増やし、\code{Session}破棄時（\code{Session}の終了ではない）にそのグラフインスタンス上のカウンタを1減らし、カウンタが0になったときに自動的にグラフインスタンスを削除するという方法が考えられます。新しいインターフェース実装では、この参照カウンタ技術が実装されています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/tf-graph-session-relation.png}
-\caption{计算图：Session引用计数器技术}
+\caption{計算グラフ：Session参照カウンタ技術}
  \label{fig:tf-graph-session-relation}
 \end{figure}
 
-\subsection{消除序列化}
+\subsection{シリアライゼーションの排除}
 
-如\refig{tf-old-session-interface}所示，在遗留的接口实现中，前端\ascii{Python}在图构造期，将图构造完成后，并将其序列化，最后通过\code{Session::Create}或\code{Session::Extend}传递给后端\ascii{C++}系统。这本质是一个图实例的拷贝过程，具有很大的时延开销。
+\refig{tf-old-session-interface}に示すように、従来のインターフェース実装では、フロントエンドの\ascii{Python}がグラフ構築期にグラフを構築した後、それをシリアライズし、最後に\code{Session::Create}または\code{Session::Extend}を通じてバックエンドの\ascii{C++}システムに渡していました。これは本質的にグラフインスタンスのコピープロセスであり、大きな遅延オーバーヘッドを持っています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/tf-old-session-interface.png}
-\caption{图实例：序列化/反序列化}
+\caption{グラフインスタンス：シリアライゼーション/デシリアライゼーション}
  \label{fig:tf-old-session-interface}
 \end{figure}
 
-如\refig{tf-new-session-interface}所示，在新的接口实现中，可以去除\code{Session}的\code{Create/Extend}的语义。在图的构造器，前端\ascii{Python}在构造每个\ascii{OP}时，直接通过\ascii{C API}将其追加至后端\ascii{C++}的图实例中，从而避免了图实例在前后端的序列化和反序列化的开销。
+\refig{tf-new-session-interface}に示すように、新しいインターフェース実装では、\code{Session}の\code{Create/Extend}のセマンティクスを削除することができます。グラフのコンストラクタにおいて、フロントエンドの\ascii{Python}が各\ascii{OP}を構築する際に、直接\ascii{C API}を通じてバックエンドの\ascii{C++}のグラフインスタンスに追加することで、グラフインスタンスのフロントエンドとバックエンド間のシリアライゼーションとデシリアライゼーションのオーバーヘッドを回避しています。
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.8\textwidth]{figures/tf-new-session-interface.png}
-\caption{图实例：实施注册ascii{OP}}
+\caption{グラフインスタンス：\ascii{OP}の実際の登録}
  \label{fig:tf-new-session-interface}
 \end{figure}
 

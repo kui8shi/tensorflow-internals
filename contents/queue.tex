@@ -3,93 +3,92 @@
 \qauthor{\ascii{- Martin Flower}}
 \end{savequote}
 
-\chapter{队列} 
+\chapter{キュー} 
 \label{ch:queue}
 
 \begin{content}
 
-\ascii{TensorFlow}的\code{Session}是线程安全的。也就是说，多个线程可以使用同一个\code{Session}实例，并发地执行同一个图实例的不同\ascii{OP}；\ascii{TensorFlow}执行引擎会根据输入与输出对图实施剪枝，得到一个最小依赖的子图。
+\ascii{TensorFlow}の\code{Session}はスレッドセーフです。つまり、複数のスレッドが同じ\code{Session}インスタンスを使用し、同じグラフインスタンスの異なる\ascii{OP}を同時に実行できます。\ascii{TensorFlow}実行エンジンは、入力と出力に基づいてグラフをプルーニングし、最小の依存関係のあるサブグラフを得ます。
 
-因此，通过多线程并使用同一个\code{Session}实例，并发地执行同一个图实例的不同\ascii{OP}，最终实现的效果是子图之间的并发执行。
+したがって、マルチスレッドを使用し、同じ\code{Session}インスタンスを使用して、同じグラフインスタンスの異なる\ascii{OP}を同時に実行することで、最終的にサブグラフ間の並行実行が実現されます。
 
-对于典型的模型训练，可以充分发挥\code{Session}多线程的并发能力，提升训练的性能。例如，输入子图运行在一个单独的线程中，用于准备样本数据；而训练子图则运行在另外一个单独的线程中，并按照\code{batch\_size}的大小一个批次取走训练样本，并启动迭代的训练过程。
+典型的なモデルトレーニングでは、\code{Session}のマルチスレッド並行処理能力を十分に活用し、トレーニングのパフォーマンスを向上させることができます。例えば、入力サブグラフは別のスレッドで実行され、サンプルデータを準備します。一方、トレーニングサブグラフは別のスレッドで実行され、\code{batch\_size}のサイズに応じてトレーニングサンプルを一括で取得し、反復トレーニングプロセスを開始します。
 
-本文将讲解上述并发模型中的基础设施，包括队列，多线程的协调器，及其控制\code{Enqueue OP}执行的\ascii{QueueRunner}。
+本文では、上記の並行モデルの基盤インフラストラクチャについて説明します。これには、キュー、マルチスレッドコーディネーター、および\code{Enqueue OP}の実行を制御する\ascii{QueueRunner}が含まれます。
 
 \end{content}
 
-\section{队列}
+\section{キュー}
 
 \begin{content}
 
-在\ascii{TensorFlow}的执行引擎中，\ascii{Queue}是一种控制异步计算的强大工具。特殊地，\ascii{Queue}是一种特殊的\ascii{OP}，与\ascii{Variable}类似，它是一类有状态的\ascii{OP}。
+\ascii{TensorFlow}の実行エンジンにおいて、\ascii{Queue}は非同期計算を制御する強力なツールです。特に、\ascii{Queue}は特殊な\ascii{OP}であり、\ascii{Variable}と同様に状態を持つ\ascii{OP}の一種です。
 
-与之类似，\ascii{Variable}拥有关联的\ascii{Assign}等修改其状态的\ascii{OP}，\ascii{Queue}也有与之关联的\ascii{OP}，例如\code{Enqueue，Dequeue，EnqueueMany，DequeueMany}等\ascii{OP}，它们都能直接修改\ascii{Queue}的状态。
+同様に、\ascii{Variable}には関連する\ascii{Assign}などの状態を変更する\ascii{OP}があるように、\ascii{Queue}にも関連する\ascii{OP}があります。例えば、\code{Enqueue、Dequeue、EnqueueMany、DequeueMany}などの\ascii{OP}は、直接\ascii{Queue}の状態を変更できます。
 
 \subsection{FIFOQueue}
 
-举一个简单例子。首先，构造了一个\code{FIFOQueue}队列；然后，在计算图中添加了一个\code{EnqueueMany}，该\ascii{OP}用于在队列头部追加\ascii{1}个或多个元素；其次，再添加一个出队的\code{Dequeue}；最后，将出队元素的值增加\ascii{1}，再将其结果入队。在启动计算图执行之前，计算图的构造如下图所示。
+簡単な例を挙げましょう。まず、\code{FIFOQueue}キューを構築します。次に、計算グラフに\code{EnqueueMany}を追加します。この\ascii{OP}はキューの先頭に1つ以上の要素を追加するために使用されます。さらに、キューから要素を取り出す\code{Dequeue}を追加します。最後に、取り出した要素の値に1を加え、その結果をキューに戻します。計算グラフの実行を開始する前の構造は以下の図のようになります。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/py-queue-example-1.png}
-\caption{图构造期}
+\caption{グラフ構築期}
  \label{fig:py-queue-example-1}
 \end{figure}
 
-执行\code{EnqueueMany}操作后，计算图的状态如下图所示。
+\code{EnqueueMany}操作を実行した後の計算グラフの状態は以下の図のようになります。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/py-queue-example-2.png}
-\caption{图执行期：执行一次EnqueueMany}
+\caption{グラフ実行期：EnqueueManyを1回実行}
  \label{fig:py-queue-example-2}
 \end{figure}
 
-
-执行第一步\code{Enqueue}后，计算图的状态如下图所示。
+最初の\code{Enqueue}を実行した後の計算グラフの状態は以下の図のようになります。
 
 \begin{figure}[!h]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/py-queue-example-3.png}
-\caption{图执行期：执行一次Enqueue}
+\caption{グラフ実行期：Enqueueを1回実行}
  \label{fig:py-queue-example-3}
 \end{figure}
 
 \subsection{用途}
 
-队列在模型训练中扮演重要角色，后文将讲述数据加载的\ascii{Pipeline}，训练模型常常使用\code{RandomShuffleQueue}为其准备样本数据。为了提高\ascii{IO}的吞吐率，可以使用多线程，并发地将样本数据追加到样本队列中；与此同时，训练模型的线程迭代执行\code{train\_op}时，一次获取\code{batch\_size}大小的批次样本数据。
+キューはモデルトレーニングで重要な役割を果たします。後述するデータ読み込みの\ascii{Pipeline}では、トレーニングモデルは通常\code{RandomShuffleQueue}を使用してサンプルデータを準備します。\ascii{IO}のスループットを向上させるために、マルチスレッドを使用して、サンプルデータを並行してサンプルキューに追加できます。同時に、モデルトレーニングスレッドが\code{train\_op}を反復実行する際、\code{batch\_size}サイズのバッチサンプルデータを一度に取得します。
 
-显而易见，队列在\ascii{Pipeline}过程中扮演了异步协调和数据交换的功能，这给\ascii{Pipeline}的设计和实现带来很大的弹性空间。
+明らかに、キューは\ascii{Pipeline}プロセスにおいて非同期調整とデータ交換の機能を果たしており、これにより\ascii{Pipeline}の設計と実装に大きな柔軟性をもたらしています。
 
-需要注意的是，为了使得队列在多线程最大化发挥作用，需要解决两个棘手的问题：
+注意すべき点は、キューがマルチスレッドで最大限の効果を発揮するためには、2つの厄介な問題を解決する必要があることです：
 
 \begin{enum}
-  \eitem{如何同时停止所有的线程，及其处理异常报告？}
-  \eitem{如何并发地向队列中追加样本数据？} 
+  \eitem{すべてのスレッドを同時に停止し、例外報告を処理する方法は？}
+  \eitem{並行してキューにサンプルデータを追加する方法は？} 
 \end{enum}
 
-因此，\ascii{TensorFlow}设计了\code{tf.train.Coordinator}和\code{tf.train.QueueRunner}两个类，分别解决上述两个问题。
+そのため、\ascii{TensorFlow}は\code{tf.train.Coordinator}と\code{tf.train.QueueRunner}という2つのクラスを設計し、上記の2つの問題をそれぞれ解決しています。
 
-这两个类相辅相成，\code{Coordinator}协调多个线程同时停止运行，并且向等待停止通知的主程序报告异常；而\code{QueueRunner}创建了一组线程，并协作多个入队\ascii{OP}(例如\code{Enqueue，EnqueueMany})的执行。
+これら2つのクラスは相互補完的で、\code{Coordinator}は複数のスレッドを同時に停止させ、停止通知を待っているメインプログラムに例外を報告します。一方、\code{QueueRunner}は一連のスレッドを作成し、複数のエンキュー\ascii{OP}（例えば\code{Enqueue、EnqueueMany}）の実行を協調します。
 
 \end{content}
 
-\section{协调器}
+\section{コーディネーター}
 
 \begin{content}
 
-\code{Coordinator}提供了一种同时停止一组线程执行的简单机制。它拥有\ascii{3}个重要的方法：
+\code{Coordinator}は、一群のスレッドの実行を同時に停止させるためのシンプルなメカニズムを提供します。これには3つの重要なメソッドがあります：
 
 \begin{enum}
-\eitem{\code{should\_stop}: 判断当前线程是否应该退出}
-\eitem{\code{request\_stop}: 请求所有线程停止执行}
-\eitem{\code{join}: 等待所有线程停止执行}
+\eitem{\code{should\_stop}: 現在のスレッドが終了すべきかどうかを判断します}
+\eitem{\code{request\_stop}: すべてのスレッドに停止を要求します}
+\eitem{\code{join}: すべてのスレッドが停止するのを待ちます}
 \end{enum}
 
 \subsection{使用方法}
 
-一般地，主程序常常使用如下模式使用\code{Coordinator}。
+一般的に、メインプログラムは以下のパターンで\code{Coordinator}を使用します。
 
 \begin{leftbar}
 \begin{python}
@@ -109,9 +108,10 @@ coord.join(threads)
 \end{python}
 \end{leftbar}
 
-任何子线程，都可以通过调用\code{coord.request\_stop}，通知其他线程停止执行。因此，每个线程的迭代执行中，都要事先检查\code{coord.should\_stop()}。一旦\code{coord.request\_stop}被调用，其他线程的\code{coord.request\_stop()}将立即返回\code{True}。
+任意の子スレッドは、\code{coord.request_stop}を呼び出すことで、他のスレッドに実行停止を通知できます。したがって、各スレッドの反復実行では、事前に\code{coord.should_stop()}をチェックする必要があります。\code{coord.request_stop}が呼び出されると、他のスレッドの\code{coord.should_stop()}は直ちに\code{True}を返します。
 
-一般地，一个子线程的迭代执行方法遵循如下实现模式。
+一般的に、子スレッドの反復実行メソッドは以下の実装パターンに従います。
+
 
 \begin{leftbar}
 \begin{python}
@@ -124,9 +124,9 @@ def MyLoop(coord):
 \end{python}
 \end{leftbar}
 
-\subsection{异常处理}
+\subsection{例外処理}
 
-当某个线程发生了异常，则可以通过\code{coord.request\_stop(e)}报告异常的发生。
+あるスレッドで例外が発生した場合、\code{coord.request\_stop(e)}を通じて例外の発生を報告できます。
 
 \begin{leftbar}
 \begin{python}
@@ -138,7 +138,7 @@ except Exception as e:
 \end{python}
 \end{leftbar}
 
-为了消除异常代码处理的重复代码，可以使用\code{coord.stop\_on\_exception()}的上下文管理器。
+例外処理コードの重複を避けるために、\code{coord.stop\_on\_exception()}のコンテキストマネージャを使用できます。
 
 \begin{leftbar}
 \begin{python}
@@ -148,7 +148,7 @@ with coord.stop_on_exception():
 \end{python}
 \end{leftbar}
 
-其中，该异常也会在\code{coord.join}中被重新抛出。因此，在主程序也需要合理地处理异常。
+この例外は\code{coord.join}でも再度スローされます。したがって、メインプrogramで適切に例外を処理する必要があります。
 
 \begin{leftbar}
 \begin{python}
@@ -171,7 +171,7 @@ except Exception as e:
 \end{python}
 \end{leftbar}
 
-\subsection{实战：LoopThread}
+\subsection{実践：LoopThread}
 
 \end{content}
 
@@ -179,18 +179,18 @@ except Exception as e:
 
 \begin{content}
 
-一个\code{QueueRunner}实例持有一个或多个\code{Enqueue}的入队\ascii{OP}，它为每个\code{Enqueue OP}启动一个线程。
+\code{QueueRunner}インスタンスは1つまたは複数の\code{Enqueue}エンキュー\ascii{OP}を保持し、各\code{Enqueue OP}に対して1つのスレッドを起動します。
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.9\textwidth]{figures/tf-queue-runner-model.png}
-\caption{TensorFlow系统架构}
+\caption{TensorFlowシステムアーキテクチャ}
  \label{fig:tf-queue-runner-model}
 \end{figure}
 
-\subsection{注册QueueRunner}
+\subsection{QueueRunnerの登録}
 
-可以调用\code{tf.train.add\_queue\_runner}往计算图中注册\code{QueueRunner}实例，并且将其添加到\code{GraphKeys.QUEUE\_RUNNERS}集合中。
+\code{tf.train.add\_queue\_runner}を呼び出して、計算グラフに\code{QueueRunner}インスタンスを登録し、\code{GraphKeys.QUEUE\_RUNNERS}コレクションに追加できます。
 
 \begin{leftbar}
 \begin{python}
@@ -199,9 +199,9 @@ def add_queue_runner(qr, collection=ops.GraphKeys.QUEUE_RUNNERS):
 \end{python}
 \end{leftbar}
 
-\subsection{执行QueueRunner}
+\subsection{QueueRunnerの実行}
 
-可以调用\code{tf.train.start\_queue\_runners}时，它会从计算图中找到所有\code{QueueRunner}实例，并从\code{QueueRunner}实例中取出所有\code{Enqueue OP}，为每个\ascii{OP}启动一个线程。
+\code{tf.train.start\_queue\_runners}を呼び出すと、計算グラフからすべての\code{QueueRunner}インスタンスを見つけ、\code{QueueRunner}インスタンスからすべての\code{Enqueue OP}を取り出し、各\ascii{OP}に対して1つのスレッドを起動します。
 
 \begin{leftbar}
 \begin{python}
@@ -216,7 +216,7 @@ def start_queue_runners(sess, coord, daemon=True, start=True,
 \end{python}
 \end{leftbar}
 
-在\code{QueueRunner.create\_threads}方法中，为其包含的每个\code{Enqueue}类型的\ascii{OP}启动单独的线程。
+\code{QueueRunner.create\_threads}メソッドでは、含まれる各\code{Enqueue}タイプの\ascii{OP}に対して個別のスレッドを起動します。
 
 \begin{leftbar}
 \begin{python}
@@ -242,9 +242,9 @@ class QueueRunner(object):
 \end{python}
 \end{leftbar}
 
-\subsubsection{迭代执行Enqueue}
+\subsubsection{Enqueueの反復実行}
 
-每个\code{Enqueue}子线程将迭代执行\code{Enqueue OP}。当发生\code{OutOfRangeError}异常时，将自动关闭队列，并退出子线程；但是，如果发生其他类型的异常，会主动通知\code{Coordinator}停止所有线程的运行，并退出子线程。
+各\code{Enqueue}サブスレッドは\code{Enqueue OP}を反復実行します。\code{OutOfRangeError}例外が発生した場合、キューは自動的に閉じられ、サブスレッドは終了します。ただし、他のタイプの例外が発生した場合、\code{Coordinator}に全スレッドの実行停止を通知し、サブスレッドを終了します。
 
 \begin{leftbar}
 \begin{python}
@@ -265,9 +265,9 @@ class QueueRunner(object):
 \end{python}
 \end{leftbar}
 
-\subsubsection{监听队列关闭}
+\subsubsection{キューの閉鎖}
 
-另外，如果给定\code{Coordinator}实例，\code{QueueRunner}还会额外启动一个线程；当\code{Coordinator}实例被触发调用\code{request\_stop}方法后，该线程将会自动关闭队列。
+また、\code{Coordinator}インスタンスが与えられた場合、\code{QueueRunner}は追加で1つのスレッドを起動します。\code{Coordinator}インスタンスの\code{request\_stop}メソッドが呼び出された後、このスレッドは自動的にキューを閉じます。
 
 \begin{leftbar}
 \begin{python}
@@ -284,8 +284,8 @@ class QueueRunner(object):
 \end{python}
 \end{leftbar}
 
-其中，\code{Queue}的\code{Cancel OP}与\code{Close OP}都会关闭队列，但是\code{Cancel OP}会撤销已缓存的\code{Enqueue OP}列表，但\code{Close OP}则保留已缓存的\code{Enqueue OP}列表。
+ここで、\code{Queue}の\code{Cancel OP}と\code{Close OP}はどちらもキューを閉じますが、\code{Cancel OP}はキャッシュされた\code{Enqueue OP}リストを取り消し、\code{Close OP}はキャッシュされた\code{Enqueue OP}リストを保持します。
 
-\subsection{关闭队列}
+\subsection{キューの閉鎖後}
 
-当队列被关闭后，对于任何尝试\code{Enqueue}将会产生错误。但是，对于任何尝试\code{Dequeue}依然是成功的，只要队列中遗留元素；否则，\code{Dequeue}将立即失败，抛出\code{OutOfRangeError}异常，而不会阻塞等待更多元素被入队。
+キューが閉じられた後、\code{Enqueue}の試行はエラーを生成します。ただし、\code{Dequeue}の試行は、キューに要素が残っている限り成功します。そうでない場合、\code{Dequeue}は即座に失敗し、\code{OutOfRangeError}例外をスローし、より多くの要素がエンキューされるのを待つことはありません。
